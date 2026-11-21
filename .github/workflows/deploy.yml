@@ -77,7 +77,7 @@ jobs:
         run: |
           if ! out="$(gcloud storage objects describe gs://kylenowski-com-tfstate/site/default.tfstate 2>&1)"; then
             if grep -qiE 'not ?found|404' <<<"$out"; then
-              echo 'terraform { backend "local" {} }' > backend_override.tf
+              printf 'terraform {\n  backend "local" {}\n}\n' > backend_override.tf
               echo "::notice::No Terraform state yet (first deploy): planning against an empty state."
             else
               echo "$out" >&2; exit 1

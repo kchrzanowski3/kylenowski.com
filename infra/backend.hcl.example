@@ -1,0 +1,6 @@
+# Copy to backend.hcl (git-ignored) and fill in your account ID.
+# R2 credentials come from AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+# (an R2 API token's access key pair), never from this file.
+bucket    = "kylenowski-tfstate"
+key       = "site/terraform.tfstate"
+endpoints = { s3 = "https://<ACCOUNT_ID>.r2.cloudflarestorage.com" }

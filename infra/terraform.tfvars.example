@@ -1,0 +1,4 @@
+# Copy to terraform.tfvars (git-ignored), or set TF_VAR_account_id instead.
+account_id = "<ACCOUNT_ID>"
+# domain       = "kylenowski.com"
+# project_name = "kylenowski"

@@ -1,0 +1,14 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+tfplan
+crash.log
+infra/backend.hcl
+infra/terraform.tfvars
+
+# Local
+.env
+.wrangler/
+node_modules/
+.DS_Store

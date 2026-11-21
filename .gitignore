@@ -12,3 +12,7 @@ infra/terraform.tfvars
 .wrangler/
 node_modules/
 .DS_Store
+
+# Astro
+dist/
+.astro/

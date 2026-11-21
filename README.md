@@ -73,7 +73,7 @@ export AWS_ACCESS_KEY_ID=...     AWS_SECRET_ACCESS_KEY=...   # the R2 keys
 terraform init -backend-config=backend.hcl
 terraform plan
 ```
-After the first `init`, commit `infra/.terraform.lock.hcl` so CI always uses the same provider version.
+`infra/.terraform.lock.hcl` pins the provider version for CI and local runs. To upgrade, bump the constraint in `versions.tf` and run `terraform init -upgrade`, then commit the lock file.
 
 Preview the site locally with `npx wrangler pages dev site`.
 

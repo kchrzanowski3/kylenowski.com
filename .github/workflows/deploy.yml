@@ -68,6 +68,22 @@ jobs:
           terraform_wrapper: false
 
       - run: terraform fmt -check -recursive
+
+      # Before the first apply there is no state, and creating it needs write
+      # access that ci-reader doesn't have. Plan against an empty local state
+      # instead, which is exactly what the first apply starts from.
+      - name: Use empty state if none exists yet (PRs)
+        if: env.IS_DEPLOY != 'true'
+        run: |
+          if ! out="$(gcloud storage objects describe gs://kylenowski-com-tfstate/site/default.tfstate 2>&1)"; then
+            if grep -qiE 'not ?found|404' <<<"$out"; then
+              echo 'terraform { backend "local" {} }' > backend_override.tf
+              echo "::notice::No Terraform state yet (first deploy): planning against an empty state."
+            else
+              echo "$out" >&2; exit 1
+            fi
+          fi
+
       - run: terraform init -input=false
       - run: terraform validate
 

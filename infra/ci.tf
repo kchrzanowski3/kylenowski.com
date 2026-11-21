@@ -34,3 +34,15 @@ resource "google_service_account_iam_member" "ci_preview_wif" {
   role               = "roles/iam.workloadIdentityUser"
   member             = local.github_principal_set
 }
+
+# ci-reader (created by the bootstrap script with roles/viewer etc.) also needs
+# to read Firebase security rules, which roles/viewer doesn't cover.
+resource "google_project_iam_member" "ci_reader" {
+  for_each = toset([
+    "roles/firebaserules.viewer",
+  ])
+
+  project = var.project_id
+  role    = each.key
+  member  = "serviceAccount:ci-reader@${var.project_id}.iam.gserviceaccount.com"
+}

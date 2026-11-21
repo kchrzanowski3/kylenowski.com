@@ -79,7 +79,7 @@ for role in roles/editor roles/resourcemanager.projectIamAdmin roles/iam.service
   grant "$DEPLOYER_SA" "$role"
 done
 # Reader: can see everything, change nothing.
-for role in roles/viewer roles/iam.securityReviewer roles/logging.viewer; do
+for role in roles/viewer roles/iam.securityReviewer roles/logging.viewer roles/firebaserules.viewer; do
   grant "$READER_SA" "$role"
 done
 

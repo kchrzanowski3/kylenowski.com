@@ -147,7 +147,7 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           npx --yes "$FIREBASE_TOOLS" hosting:channel:deploy "pr-${{ github.event.number }}" \
-            --expires 7d --no-authorized-domains --project "$GCP_PROJECT_ID" --non-interactive --json > channel.json
+            --expires 7d --no-authorized-domains --project "$GCP_PROJECT_ID" --non-interactive --json > channel.json || { cat channel.json; exit 1; }
           url="$(jq -r '.result[].url' channel.json)"
           echo "### Preview: $url" >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=Preview URL::$url"

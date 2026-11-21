@@ -1,86 +1,66 @@
 # kylenowski.com
 
-A static site on Cloudflare Pages. Everything except the domain purchase is code:
+Personal site. Everything is code:
 
-| Path | What it is |
-|---|---|
-| `site/` | The website (currently a hello world page) plus `_headers` security headers |
-| `infra/` | Terraform: Pages project, DNS, custom domain, www→apex redirect, HTTPS/TLS settings, DNSSEC |
-| `.github/workflows/deploy.yml` | On PRs to `main`: `terraform plan` + a Pages preview deployment. On pushes to `main`: `terraform apply`, then a production deploy of `site/` |
-
-Terraform state is kept in a Cloudflare R2 bucket.
-
-## One-time setup (about 10 minutes)
-
-### 1. Clear any default DNS records
-Open Cloudflare dashboard → **kylenowski.com** → **DNS → Records**. If an `A`, `AAAA` or `CNAME` record
-already exists for `kylenowski.com` or `www`, delete it. Terraform creates those records itself, and a
-leftover one will make the first apply fail.
-
-### 2. Create the state bucket
-Go to **R2 → Create bucket** and name it `kylenowski-tfstate`, or run:
-```sh
-npx wrangler r2 bucket create kylenowski-tfstate
-```
-Then go to **R2 → Manage API tokens → Create API token**, choose **Object Read & Write**, and limit it to that
-bucket. Save the **Access Key ID** and **Secret Access Key**.
-
-### 3. Create a Cloudflare API token
-Go to **My Profile → API Tokens → Create Token → Custom token** and add:
-
-| Scope | Permission | Access |
+| Piece | Where | Path |
 |---|---|---|
-| Account | Cloudflare Pages | Edit |
-| Zone | Zone | Read |
-| Zone | DNS | Edit |
-| Zone | Zone Settings | Edit |
-| Zone | Dynamic Redirect (some dashboards label this *Single Redirect*) | Edit |
+| Site | [Astro](https://astro.build) (static) + React for interactive parts | `src/`, `public/`, `astro.config.mjs` |
+| Hosting | Firebase Hosting (GCP project `kylenowski-com`) | `firebase.json` |
+| Data | Firestore (`us-central1`); security rules | `firestore.rules` |
+| DNS | Cloudflare, **DNS only** (nothing proxied) | `infra/dns.tf` |
+| GCP resources | Terraform (state in `gs://kylenowski-com-tfstate`) | `infra/` |
+| Pipeline | GitHub Actions | `.github/workflows/deploy.yml` |
+| One-time GCP setup | Already run; safe to re-run | `scripts/bootstrap-gcp.sh` |
 
-Set **Zone Resources** to *Include → Specific zone → kylenowski.com*. If the first apply fails with a 403 on
-`cloudflare_ruleset`, the redirect permission is the one to look at.
+## How changes ship
+1. Open a PR against `main`. CI:
+   - builds the site (`astro check` + `astro build`)
+   - runs `terraform plan` as the **read-only** `ci-reader` account. The plan is in the run's **Summary** tab.
+   - deploys a **preview** to a Firebase Hosting channel (`pr-<number>`, expires after 7 days). The URL is in
+     the Summary tab.
+2. Merge. CI applies the plan as `ci-deployer` and deploys `dist/` to the live site.
 
-### 4. Add GitHub repository secrets
-In the repo, go to **Settings → Secrets and variables → Actions** and add:
+Nothing in GCP or Cloudflare should be changed by hand.
 
-| Secret | Value |
-|---|---|
-| `CLOUDFLARE_API_TOKEN` | the token from step 3 |
-| `CLOUDFLARE_ACCOUNT_ID` | the Account ID shown in the dashboard sidebar |
-| `R2_ACCESS_KEY_ID` | from step 2 |
-| `R2_SECRET_ACCESS_KEY` | from step 2 |
+### How CI logs in
+- **GCP:** keyless, through Workload Identity Federation. Only this repo (matched by numeric ID) can use the
+  identities, and only runs on `main` can use `ci-deployer`. PRs from forks get no GCP access.
+- **Cloudflare:** the repo secret `CLOUDFLARE_API_TOKEN`. It's a Cloudflare API token with
+  **Zone → Zone → Read** and **Zone → DNS → Edit**, limited to the kylenowski.com zone.
 
-### 5. Push to `main`
-The workflow applies Terraform and then deploys the site. The custom domain's certificate usually becomes
-active within a few minutes. Until then, the site is live at the `pages_dev_url` output.
+| Identity | Can do | Used by |
+|---|---|---|
+| `ci-deployer` | manage the project (Terraform apply, live deploys) | pushes to `main` |
+| `ci-reader` | read everything, change nothing | PR plans, `inspect-gcp` workflow |
+| `ci-preview` | deploy Firebase Hosting preview channels | PR previews (created by Terraform) |
 
-## How changes flow
-1. Open a PR against `main`. CI runs `terraform fmt`/`validate`/`plan` (the plan is in the run's
-   **Summary** tab) and uploads `site/` as a preview deployment at `pr-<number>.kylenowski.pages.dev`.
-2. Merge. CI applies the saved plan and deploys `site/` to production.
-
-Nothing in Cloudflare should be edited by hand: change the Terraform and let CI apply it. Terraform state is
-locked during plan/apply (`use_lockfile`), so overlapping runs wait for each other instead of clobbering state.
-
-Recommended: in **Settings → Branches**, add a rule for `main` that requires the `infra` and `site` checks to
-pass before merging.
-
-## Running Terraform locally (optional)
+### Debugging GCP
+The `inspect-gcp` workflow (Actions tab → *inspect-gcp* → *Run workflow*) runs a read-only `gcloud` command
+or a GET against a Google API as `ci-reader`, for example:
 ```sh
-cd infra
-cp backend.hcl.example backend.hcl            # fill in your account ID
-export CLOUDFLARE_API_TOKEN=...  TF_VAR_account_id=...
-export AWS_ACCESS_KEY_ID=...     AWS_SECRET_ACCESS_KEY=...   # the R2 keys
-terraform init -backend-config=backend.hcl
-terraform plan
+gh workflow run inspect-gcp -f kind=gcloud -f args="services list --enabled"
 ```
-`infra/.terraform.lock.hcl` pins the provider version for CI and local runs. To upgrade, bump the constraint in `versions.tf` and run `terraform init -upgrade`, then commit the lock file.
 
-Preview the site locally with `npx wrangler pages dev site`.
+## Local development
+```sh
+npm install
+npm run dev            # http://localhost:4321
+npm run build          # type-check + static build to dist/
+```
+The CSP that Astro generates only applies to `build` output. Use `npm run build && npm run preview` (or
+`npx firebase-tools emulators:start --only hosting --project demo-kylenowski`) to test with it.
+
+Terraform locally (optional; needs your own `gcloud auth application-default login` and a Cloudflare token):
+```sh
+cd infra && terraform init && terraform plan
+```
 
 ## Notes
+- **Security headers:** `firebase.json` sets HSTS and the other security headers. Astro adds a per-page
+  Content-Security-Policy `<meta>` tag with hashes of its own scripts, configured in `astro.config.mjs`. When a
+  page needs to talk to an outside service (e.g. Firestore), add it to `connect-src` there.
+- **Email:** the domain publishes "sends no mail / accepts no mail" records (SPF `-all`, DMARC reject,
+  null MX) to block spoofing. Replace them in `infra/dns.tf` if you set up email.
 - **DNSSEC:** because the domain is registered with Cloudflare, Cloudflare adds the DS record at the registry
-  for you. If the domain were registered somewhere else, you'd set `enable_dnssec = false` or add the DS
-  record at that registrar.
-- **Project name:** `kylenowski` appears in both `infra/variables.tf` and the deploy step of the workflow.
-  Keep the two in sync if you rename it.
-- **Domain renewal** is managed in the Cloudflare dashboard, not Terraform.
+  for you.
+- **Budget:** a $10/month budget alert is set on the billing account (from the bootstrap script).

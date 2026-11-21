@@ -16,3 +16,7 @@ node_modules/
 # Astro
 dist/
 .astro/
+
+# Firebase
+.firebase/
+firebase-debug.log

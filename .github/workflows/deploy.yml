@@ -1,7 +1,7 @@
 name: deploy
 
-# PRs to main: terraform plan (no changes made) + a Pages preview deployment.
-# Pushes to main: terraform apply, then a production deployment of site/.
+# PRs to main:    build, terraform plan (read-only), Firebase Hosting preview channel.
+# Pushes to main: build, terraform apply, deploy dist/ to the live site.
 on:
   push:
     branches: [main]
@@ -9,50 +9,88 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# One run at a time per branch/PR. Runs on different refs are kept safe by the
-# Terraform state lock (use_lockfile in infra/versions.tf).
+# One run at a time per branch/PR. Applies only happen on main, and GCS locks state.
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
   contents: read
+  id-token: write # GitHub OIDC token -> GCP Workload Identity Federation (no keys)
 
 env:
   TF_VERSION: 1.17.2
   TF_IN_AUTOMATION: "true"
-  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  TF_VAR_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  FIREBASE_TOOLS: firebase-tools@15.37.0
+  GCP_PROJECT_ID: kylenowski-com
+  GCP_WIF_PROVIDER: projects/420500505231/locations/global/workloadIdentityPools/github/providers/github
+  # ci-deployer can only be used by runs on refs/heads/main (enforced in GCP IAM).
+  GCP_DEPLOYER_SA: ci-deployer@kylenowski-com.iam.gserviceaccount.com
+  GCP_READER_SA: ci-reader@kylenowski-com.iam.gserviceaccount.com
+  GCP_PREVIEW_SA: ci-preview@kylenowski-com.iam.gserviceaccount.com
+  IS_DEPLOY: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build # astro check + astro build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist
+          retention-days: 7
+
   infra:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: infra
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
       - uses: actions/checkout@v7
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ env.IS_DEPLOY == 'true' && env.GCP_DEPLOYER_SA || env.GCP_READER_SA }}
 
       - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
 
-      - name: Write backend config
-        run: |
-          cat > backend.hcl <<EOF
-          bucket    = "kylenowski-tfstate"
-          key       = "site/terraform.tfstate"
-          endpoints = { s3 = "https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com" }
-          EOF
-
       - run: terraform fmt -check -recursive
-      - run: terraform init -input=false -backend-config=backend.hcl
+
+      # Before the first apply there is no state, and creating it needs write
+      # access that ci-reader doesn't have. Plan against an empty local state
+      # instead, which is exactly what the first apply starts from.
+      - name: Use empty state if none exists yet (PRs)
+        if: env.IS_DEPLOY != 'true'
+        run: |
+          if ! out="$(gcloud storage objects describe gs://kylenowski-com-tfstate/site/default.tfstate 2>&1)"; then
+            if grep -qiE 'not ?found|404' <<<"$out"; then
+              printf 'terraform {\n  backend "local" {}\n}\n' > backend_override.tf
+              echo "::notice::No Terraform state yet (first deploy): planning against an empty state."
+            else
+              echo "$out" >&2; exit 1
+            fi
+          fi
+
+      - run: terraform init -input=false
       - run: terraform validate
-      - run: terraform plan -input=false -lock-timeout=5m -out=tfplan
+
+      # PR plans run as the read-only ci-reader, which can't write the state
+      # lock, so they skip locking (a plan never writes state anyway).
+      - name: terraform plan
+        run: terraform plan -input=false -out=tfplan ${{ env.IS_DEPLOY == 'true' && '-lock-timeout=5m' || '-lock=false' }}
 
       - name: Plan summary
         if: always()
@@ -66,36 +104,50 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Apply (main only)
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      - name: terraform apply (main only)
+        if: env.IS_DEPLOY == 'true'
         run: terraform apply -input=false -lock-timeout=5m tfplan
 
-  site:
-    needs: infra
+      - name: Outputs summary (main only)
+        if: env.IS_DEPLOY == 'true'
+        run: |
+          {
+            echo '### Terraform outputs'
+            echo '```json'
+            terraform output -json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  hosting:
+    needs: [build, infra]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-
-      # Production on main; a preview deployment (its own *.pages.dev URL) on PRs.
-      - name: Pick Pages branch
-        id: target
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "branch=pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "branch=main" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Deploy to Cloudflare Pages
-        id: deploy
-        uses: cloudflare/wrangler-action@v4
+      - uses: actions/checkout@v7 # for firebase.json
+      - uses: actions/download-artifact@v8
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy site --project-name=kylenowski --branch=${{ steps.target.outputs.branch }} --commit-dirty=true
+          name: dist
+          path: dist
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
 
-      - name: Deployment summary
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ env.IS_DEPLOY == 'true' && env.GCP_DEPLOYER_SA || env.GCP_PREVIEW_SA }}
+
+      - name: Deploy live site (main only)
+        if: env.IS_DEPLOY == 'true'
         run: |
-          echo "### Deployed \`${{ steps.target.outputs.branch }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Deployment: ${{ steps.deploy.outputs.deployment-url }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Branch alias: ${{ steps.deploy.outputs.pages-deployment-alias-url }}" >> "$GITHUB_STEP_SUMMARY"
+          npx --yes "$FIREBASE_TOOLS" deploy --only hosting --project "$GCP_PROJECT_ID" \
+            --non-interactive --message "${GITHUB_SHA::7}"
+          echo "### Deployed ${GITHUB_SHA::7} to https://kylenowski.com" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deploy preview channel (PRs)
+        if: github.event_name == 'pull_request'
+        run: |
+          npx --yes "$FIREBASE_TOOLS" hosting:channel:deploy "pr-${{ github.event.number }}" \
+            --expires 7d --no-authorized-domains --project "$GCP_PROJECT_ID" --non-interactive --json > channel.json || { cat channel.json; exit 1; }
+          url="$(jq -r '.result[].url' channel.json)"
+          echo "### Preview: $url" >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Preview URL::$url"

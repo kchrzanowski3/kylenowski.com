@@ -1,0 +1,52 @@
+name: inspect-gcp
+
+# Read-only look at GCP for debugging, run as ci-reader (viewer roles only).
+# Changes never go through here: they go through a PR.
+#
+#   gh workflow run inspect-gcp -f kind=gcloud -f args="run services list"
+#   gh workflow run inspect-gcp -f kind=api-get -f args="https://firebasehosting.googleapis.com/v1beta1/projects/kylenowski-com/sites/kylenowski-com/customDomains"
+on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: "gcloud = run a gcloud command; api-get = GET a *.googleapis.com URL"
+        type: choice
+        options: [gcloud, api-get]
+        default: gcloud
+      args:
+        description: "gcloud arguments (without 'gcloud'), or the URL for api-get"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/420500505231/locations/global/workloadIdentityPools/github/providers/github
+          service_account: ci-reader@kylenowski-com.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Run
+        env:
+          KIND: ${{ inputs.kind }}
+          ARGS: ${{ inputs.args }}
+        run: |
+          set -euo pipefail
+          if [ "$KIND" = gcloud ]; then
+            read -ra argv <<< "$ARGS"
+            gcloud --project=kylenowski-com "${argv[@]}"
+          else
+            case "$ARGS" in
+              https://*.googleapis.com/*) ;;
+              *) echo "api-get only accepts https://*.googleapis.com/ URLs" >&2; exit 1 ;;
+            esac
+            curl -sS --fail-with-body -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+              "$ARGS" | jq .
+          fi

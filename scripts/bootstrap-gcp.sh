@@ -61,7 +61,7 @@ WIF_ARGS=(
 if g iam workload-identity-pools providers describe "$PROVIDER" --location=global --workload-identity-pool="$POOL" >/dev/null 2>&1; then
   g iam workload-identity-pools providers update-oidc "$PROVIDER" "${WIF_ARGS[@]}" >/dev/null
 else
-  g iam workload-identity-pools providers create-oidc "$PROVIDER" "${WIF_ARGS[@]}" --display-name="GitHub ${GITHUB_REPO}"
+  g iam workload-identity-pools providers create-oidc "$PROVIDER" "${WIF_ARGS[@]}" --display-name="GitHub Actions"
 fi
 
 echo "==> CI service accounts"

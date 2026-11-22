@@ -12,18 +12,16 @@ locals {
   zone_id  = data.cloudflare_zone.site.id
   www_host = "www.${var.domain}"
 
-  # Firebase Hosting's custom-domain records: an A record to Hosting's IP plus a
-  # TXT ownership record per hostname. If Firebase ever asks for something else,
-  # the `firebase_required_dns` output shows exactly what it wants.
-  firebase_hosting_ip = "199.36.158.100"
-  hosting_hosts       = toset([var.domain, local.www_host])
+  # Firebase Hosting's custom-domain records. Firebase reports what it wants in
+  # the `firebase_required_dns` output; these match it.
+  firebase_hosting_ip   = "199.36.158.100"
+  firebase_default_host = trimprefix(google_firebase_hosting_site.site.default_url, "https://")
 }
 
-resource "cloudflare_dns_record" "hosting_a" {
-  for_each = local.hosting_hosts
-
+# Apex: A record to Hosting plus a TXT ownership record.
+resource "cloudflare_dns_record" "apex_a" {
   zone_id = local.zone_id
-  name    = each.key
+  name    = var.domain
   type    = "A"
   content = local.firebase_hosting_ip
   proxied = false
@@ -31,15 +29,41 @@ resource "cloudflare_dns_record" "hosting_a" {
   comment = "Managed by Terraform: Firebase Hosting"
 }
 
-resource "cloudflare_dns_record" "hosting_txt" {
-  for_each = local.hosting_hosts
-
+resource "cloudflare_dns_record" "apex_hosting_txt" {
   zone_id = local.zone_id
-  name    = each.key
+  name    = var.domain
   type    = "TXT"
   content = "\"hosting-site=${google_firebase_hosting_site.site.site_id}\""
   ttl     = 1
   comment = "Managed by Terraform: Firebase Hosting domain ownership"
+}
+
+# www: CNAME to the site's default host (Firebase then redirects it to the apex).
+resource "cloudflare_dns_record" "www" {
+  zone_id = local.zone_id
+  name    = local.www_host
+  type    = "CNAME"
+  content = local.firebase_default_host
+  proxied = false
+  ttl     = 1
+  comment = "Managed by Terraform: Firebase Hosting (redirects to apex)"
+}
+
+moved {
+  from = cloudflare_dns_record.hosting_a["kylenowski.com"]
+  to   = cloudflare_dns_record.apex_a
+}
+
+moved {
+  from = cloudflare_dns_record.hosting_txt["kylenowski.com"]
+  to   = cloudflare_dns_record.apex_hosting_txt
+}
+
+# The old www A record becomes the CNAME (type change = delete, then create).
+# The old www TXT record is deleted, since a CNAME can't share its name.
+moved {
+  from = cloudflare_dns_record.hosting_a["www.kylenowski.com"]
+  to   = cloudflare_dns_record.www
 }
 
 # ---------------------------------------------------------------------------

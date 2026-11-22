@@ -36,7 +36,7 @@ resource "google_firebase_hosting_custom_domain" "apex" {
   custom_domain = var.domain
 
   wait_dns_verification = false
-  depends_on            = [cloudflare_dns_record.hosting_a, cloudflare_dns_record.hosting_txt]
+  depends_on            = [cloudflare_dns_record.apex_a, cloudflare_dns_record.apex_hosting_txt]
 }
 
 resource "google_firebase_hosting_custom_domain" "www" {
@@ -47,7 +47,7 @@ resource "google_firebase_hosting_custom_domain" "www" {
   redirect_target = var.domain
 
   wait_dns_verification = false
-  depends_on            = [cloudflare_dns_record.hosting_a, cloudflare_dns_record.hosting_txt]
+  depends_on            = [cloudflare_dns_record.www]
 }
 
 # ---------------------------------------------------------------------------

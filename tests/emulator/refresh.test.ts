@@ -152,6 +152,16 @@ describe('pre-game refresh', () => {
     expect((await game(GAME1)).scorers).toHaveLength(16);
   });
 
+  it('can skip the season averages, keeping the stored ones (the live worker does this every minute)', async () => {
+    await runPregameRefresh(db, fakeEspn().fetchJson, () => MONDAY);
+    const before = (await game(GAME1)).averages;
+    const quick = fakeEspn();
+    await runPregameRefresh(db, quick.fetchJson, () => MONDAY + 60_000, { seasonAverages: false });
+    expect(quick.calls.some((u) => /seasontype=2|summary\?event=/.test(u))).toBe(false);
+    expect((await game(GAME1)).averages).toEqual(before);
+    expect((await game(GAME1)).refreshedAt.toMillis()).toBe(MONDAY + 60_000);
+  });
+
   it('records when it last ran', async () => {
     await runPregameRefresh(db, fakeEspn().fetchJson, () => MONDAY);
     const meta = (await db.doc('tgMeta/refresh').get()).data()!;

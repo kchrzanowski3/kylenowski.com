@@ -87,7 +87,21 @@ async function scorersFor(fetchJson: FetchJson, game: FeedGame): Promise<ScorerO
   return out;
 }
 
-export async function runPregameRefresh(db: Firestore, fetchJson: FetchJson, clock: () => number = Date.now): Promise<RefreshReport> {
+export interface RefreshOptions {
+  /**
+   * Recompute the season averages (about 20 feed requests, more for games not cached yet). The live
+   * worker, which refreshes every minute until each kickoff, skips this and keeps the stored ones.
+   */
+  seasonAverages?: boolean;
+}
+
+export async function runPregameRefresh(
+  db: Firestore,
+  fetchJson: FetchJson,
+  clock: () => number = Date.now,
+  options: RefreshOptions = {},
+): Promise<RefreshReport> {
+  const withSeason = options.seasonAverages ?? true;
   const errors: string[] = [];
   const report: RefreshReport = { games: [], seasonGames: 0, newSeasonGames: 0, errors };
 
@@ -95,7 +109,7 @@ export async function runPregameRefresh(db: Firestore, fetchJson: FetchJson, clo
   const games = parseScoreboard(sb).filter((g) => etDate(g.kickoff) === CONTEST_DAY_ET);
   if (games.length === 0) throw new Error(`no games on the ${CONTEST_DATE} scoreboard`);
 
-  const season = await loadSeasonGames(db, fetchJson, errors);
+  const season = withSeason ? await loadSeasonGames(db, fetchJson, errors) : { docs: [], fetched: 0 };
   report.seasonGames = season.docs.length;
   report.newSeasonGames = season.fetched;
   const teamGames = season.docs.flatMap((g) => [
@@ -141,7 +155,7 @@ export async function runPregameRefresh(db: Firestore, fetchJson: FetchJson, clo
           line: game.line,
           projection: game.line ? vegasProjection(game.line) : null,
           scorers,
-          averages: { away: avg(game.away.id), home: avg(game.home.id), nfl: averages.nfl },
+          ...(withSeason ? { averages: { away: avg(game.away.id), home: avg(game.home.id), nfl: averages.nfl } } : {}),
           refreshedAt: Timestamp.fromMillis(now),
         },
         { merge: true }, // keeps admin fields (kickoffOverride, scorerEdits)
@@ -151,11 +165,14 @@ export async function runPregameRefresh(db: Firestore, fetchJson: FetchJson, clo
     report.games.push({ espnId: game.espnId, matchup, frozen });
   }
 
-  await db.collection('tgMeta').doc('refresh').set({
-    lastRunAt: Timestamp.fromMillis(clock()),
-    games: report.games.length,
-    seasonGames: report.seasonGames,
-    errors: errors.slice(0, 20),
-  });
+  await db.collection('tgMeta').doc('refresh').set(
+    {
+      lastRunAt: Timestamp.fromMillis(clock()),
+      games: report.games.length,
+      ...(withSeason ? { seasonGames: report.seasonGames } : {}),
+      errors: errors.slice(0, 20),
+    },
+    { merge: true },
+  );
   return report;
 }

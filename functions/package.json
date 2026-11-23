@@ -1,0 +1,14 @@
+{
+  "name": "kylenowski-functions",
+  "private": true,
+  "description": "Cloud Functions for the Thanksgiving picks. Source is in src/; `npm run build:functions` at the repo root bundles it into dist/ with this file, which is what gets deployed.",
+  "type": "module",
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "dependencies": {
+    "@google-cloud/functions-framework": "5.0.5",
+    "firebase-admin": "14.5.0"
+  }
+}

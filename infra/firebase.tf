@@ -25,6 +25,8 @@ resource "google_firebase_hosting_site" "site" {
   provider = google-beta
   project  = var.project_id
   site_id  = var.project_id
+  # Serves this web app's config at /__/firebase/init.json (thanksgiving.tf).
+  app_id = google_firebase_web_app.site.app_id
 
   depends_on = [google_firebase_project.this]
 }
@@ -51,8 +53,8 @@ resource "google_firebase_hosting_custom_domain" "www" {
 }
 
 # ---------------------------------------------------------------------------
-# Firestore: app data. Rules live in ../firestore.rules (deny-all until an app
-# needs access).
+# Firestore: app data. Rules live in ../firestore.rules (deny-all except what
+# an app opens).
 # ---------------------------------------------------------------------------
 resource "google_firestore_database" "default" {
   project                 = var.project_id

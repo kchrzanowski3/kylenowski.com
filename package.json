@@ -9,20 +9,33 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro check && astro build",
+    "build:functions": "node scripts/build-functions.mjs",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "test": "vitest run && npm run test:emulator",
+    "test:unit": "vitest run",
+    "test:emulator": "firebase emulators:exec --only firestore,auth --project demo-kylenowski \"vitest run --config vitest.emulator.config.ts\"",
+    "test:e2e": "npm run build:functions && PUBLIC_TG_EMULATOR=1 PUBLIC_TG_API=http://127.0.0.1:8090 astro build && playwright test"
   },
   "dependencies": {
     "@astrojs/react": "^7.1.9",
     "astro": "^7.4.13",
+    "firebase": "12.19.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
+    "@firebase/rules-unit-testing": "5.0.2",
+    "@google-cloud/functions-framework": "5.0.5",
+    "@playwright/test": "1.63.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "esbuild": "0.28.2",
+    "firebase-admin": "14.5.0",
+    "firebase-tools": "15.37.0",
     "typescript": "^5.9.3",
+    "vitest": "3.2.7",
     "wrangler": "^4.166.0"
   }
 }

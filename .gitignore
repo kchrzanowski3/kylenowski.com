@@ -19,4 +19,7 @@ dist/
 
 # Firebase
 .firebase/
-firebase-debug.log
+*-debug.log
+functions/dist/
+playwright-report/
+test-results/

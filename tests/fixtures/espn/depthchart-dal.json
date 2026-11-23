@@ -1,0 +1,155 @@
+{
+ "items": [
+  {
+   "name": "3WR 1TE",
+   "positions": {
+    "wr": {
+     "athletes": [
+      {
+       "slot": 1,
+       "rank": 1,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/4241389?lang=en&region=us"
+       }
+      },
+      {
+       "slot": 1,
+       "rank": 4,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/3676833?lang=en&region=us"
+       }
+      },
+      {
+       "slot": 2,
+       "rank": 2,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/4426354?lang=en&region=us"
+       }
+      },
+      {
+       "slot": 2,
+       "rank": 5,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/4426485?lang=en&region=us"
+       }
+      },
+      {
+       "slot": 8,
+       "rank": 3,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/5083754?lang=en&region=us"
+       }
+      },
+      {
+       "slot": 8,
+       "rank": 6,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/4808759?lang=en&region=us"
+       }
+      }
+     ]
+    },
+    "qb": {
+     "athletes": [
+      {
+       "slot": 9,
+       "rank": 1,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/2577417?lang=en&region=us"
+       }
+      },
+      {
+       "slot": 9,
+       "rank": 2,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/4426875?lang=en&region=us"
+       }
+      }
+     ]
+    },
+    "te": {
+     "athletes": [
+      {
+       "slot": 10,
+       "rank": 1,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/4242355?lang=en&region=us"
+       }
+      },
+      {
+       "slot": 10,
+       "rank": 2,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/4360967?lang=en&region=us"
+       }
+      },
+      {
+       "slot": 10,
+       "rank": 3,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/4372096?lang=en&region=us"
+       }
+      },
+      {
+       "slot": 10,
+       "rank": 4,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/4361988?lang=en&region=us"
+       }
+      },
+      {
+       "slot": 10,
+       "rank": 5,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/4242442?lang=en&region=us"
+       }
+      }
+     ]
+    },
+    "rb": {
+     "athletes": [
+      {
+       "slot": 11,
+       "rank": 1,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/4361579?lang=en&region=us"
+       }
+      },
+      {
+       "slot": 11,
+       "rank": 2,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/4372519?lang=en&region=us"
+       }
+      },
+      {
+       "slot": 11,
+       "rank": 3,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/4429676?lang=en&region=us"
+       }
+      },
+      {
+       "slot": 11,
+       "rank": 4,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/4240603?lang=en&region=us"
+       }
+      }
+     ]
+    },
+    "fb": {
+     "athletes": [
+      {
+       "slot": 12,
+       "rank": 1,
+       "athlete": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/athletes/4383396?lang=en&region=us"
+       }
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

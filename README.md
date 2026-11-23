@@ -18,7 +18,8 @@ Personal site. Everything is code:
    - builds the site (`astro check` + `astro build`)
    - runs `terraform plan` as the **read-only** `ci-reader` account. The plan is in the run's **Summary** tab.
    - deploys a **preview** to a Firebase Hosting channel (`pr-<number>`, expires after 7 days). The link is put
-     at the top of the PR description (updated on every push) and in the run's Summary tab. A preview uses
+     at the top of the PR description (updated on every push), with one-click links to each page whose
+     built HTML differs from the live site, and in the run's Summary tab. A preview uses
      the live backend (Firestore, functions), so a change that adds backend pieces only fully works on its
      preview once it's merged.
 2. Merge. CI applies the plan as `ci-deployer` and deploys `dist/` to the live site.

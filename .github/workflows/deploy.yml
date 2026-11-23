@@ -210,8 +210,10 @@ jobs:
           echo "::notice title=Preview URL::$url"
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
-      # Keeps one preview block at the top of the PR description, replaced on every push.
-      - name: Put the preview link at the top of the PR description (PRs)
+      # Keeps one block at the top of the PR description, replaced on every push: the preview link
+      # and one-click links to the pages whose built HTML differs from the live site
+      # (scripts/pr-preview-body.mjs).
+      - name: Put the preview links at the top of the PR description (PRs)
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -219,14 +221,9 @@ jobs:
           PR: ${{ github.event.number }}
           URL: ${{ steps.preview.outputs.url }}
           SHA: ${{ github.event.pull_request.head.sha }}
+          DIST: dist
+          LIVE: https://kylenowski.com
         run: |
-          body="$(gh api "repos/$REPO/pulls/$PR" --jq '.body // ""')"
-          rest="$(printf '%s\n' "$body" \
-            | sed '/<!-- preview-link:start -->/,/<!-- preview-link:end -->/d' \
-            | awk 'NF { started = 1 } started')"
-          block="$(printf '%s\n' \
-            '<!-- preview-link:start -->' \
-            "**Preview:** [${URL#https://}]($URL) (built from ${SHA::7}; expires 7 days after the last push)" \
-            '<!-- preview-link:end -->')"
-          gh api -X PATCH "repos/$REPO/pulls/$PR" -f body="$(printf '%s\n\n%s\n' "$block" "$rest")" > /dev/null
-          echo "Preview link is at the top of the PR description." >> "$GITHUB_STEP_SUMMARY"
+          BODY="$(gh api "repos/$REPO/pulls/$PR" --jq '.body // ""')" node scripts/pr-preview-body.mjs > body.md
+          gh api -X PATCH "repos/$REPO/pulls/$PR" -F body=@body.md > /dev/null
+          { echo '### PR description links'; sed -n '2,3p' body.md; } >> "$GITHUB_STEP_SUMMARY"

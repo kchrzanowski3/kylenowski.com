@@ -169,8 +169,10 @@ game, with ties as **co-winners** (no tiebreaker).
 
 ## Admin (only Kyle)
 
-- At `/thanksgiving/admin`, **signed in with Kyle's Google account**. No other account can open it. The admin
-  identity is set in configuration, not committed to this public repo.
+- At `/thanksgiving/admin`, **signed in with an emailed sign-in link sent to Kyle's email address**. No other
+  account can open it. The admin email address is set in configuration, not committed to this public repo.
+- **Kyle plays too**, as a regular player under a player name. The admin sign-in is separate from that, and
+  being the admin gives no early look at anyone's picks (see "No peeking").
 - **Fix any stat or result.** An override wins over the live feed, and the screen shows both the feed value and
   the override.
 - **Pause the automatic feed** for a game, or re-run scoring.
@@ -180,6 +182,9 @@ game, with ties as **co-winners** (no tiebreaker).
 - **No peeking:** before a game kicks off, the admin screen **can't show other players' picks** for that game,
   the same as every other player's view. After kickoff it shows everything.
 - **Players:** rename, remove, or reset a PIN.
+- **Edit the first-TD-scorer list** for a game before its kickoff: add or remove a player, in case ESPN's depth
+  chart is out of date. The admin's edits win over the pre-game refresh, which won't undo them. A pick already
+  made on a removed player stays, but won't score (as with inactive players).
 - **Adjust a kickoff/lock time** if the schedule changes. A lock time that has already passed can't be moved
   later (see "Locking and reveal").
 - Every admin change is logged with a timestamp.
@@ -202,11 +207,11 @@ game, with ties as **co-winners** (no tiebreaker).
   - **Players:** a small **sign-in service** on Cloud Run handles joining and logging in. It checks the name
     and PIN (PINs are stored hashed and never readable by phones), limits wrong PIN guesses, and returns a
     Firebase sign-in token for that player. This is what lets the same player sign in on a second device.
-  - **Admin:** signs in with Google. Kyle's account ID is kept in a GitHub secret, passed to Terraform as a
-    sensitive variable and inserted into the Firestore rules when they're deployed, so it's never committed
-    or shown in a PR's plan output.
-  - Google sign-in needs an OAuth client, which can't be created with Terraform. That's a one-time setup step
-    outside Terraform; its client ID and secret are stored as GitHub secrets.
+  - **Admin:** signs in with an **emailed sign-in link** (Firebase's passwordless email sign-in), which
+    Terraform can set up entirely, with no manual steps. Kyle's email address is kept in a GitHub secret,
+    passed to Terraform as a sensitive variable and inserted into the Firestore rules when they're deployed,
+    so it's never committed or shown in a PR's plan output. The rules accept only that address, and only
+    once it's verified (which clicking the emailed link does).
 - **Re-scoring after an admin fix:** saving an override calls the same Cloud Run service, which runs scoring
   once.
 - **Live updates:** see "Live updates" below. All scoring happens on the server, not on phones.
@@ -225,7 +230,7 @@ The same Cloud Run job, run in "pre-game" mode by Cloud Scheduler, refreshes eve
 
 - the betting line (spread and over/under) and the Vegas projected score
 - kickoff and lock times, in case the schedule changes
-- the first-TD-scorer player lists, from current rosters and inactives
+- the first-TD-scorer player lists, from current depth charts and inactives (keeping the admin's edits)
 - the reference averages
 
 Schedule:
@@ -297,7 +302,8 @@ Tests are written alongside the code and run in CI on every PR (a `test` job nex
 3. **Firestore security rules**, tested in the Firebase emulator:
    - players can write only their own picks, and only before kickoff
    - other players' picks can't be read before kickoff, including from the admin screen
-   - only the admin can write overrides or change the spoiler delay
+   - only the admin can write overrides, change the spoiler delay or edit the first-TD-scorer list
+   - the admin is only the configured email address, and only once it's verified
    - PIN-protected names can't be taken over without the PIN
    - a lock that has passed can't be reopened by moving kickoff later
    - standings, the player list and revealed picks are readable without signing in; PINs never are
@@ -305,7 +311,8 @@ Tests are written alongside the code and run in CI on every PR (a `test` job nex
    refused and repeated wrong guesses are slowed down; a right PIN signs in on a new device; players can add
    or change their own PIN; joining closes at game 3's kickoff.
 5. **First-TD-scorer list:** built from a recorded depth chart, it has each team's top 2 QBs, top 2 RBs, 3
-   starting WRs and starting TE, and drops players ruled out or inactive.
+   starting WRs and starting TE, and drops players ruled out or inactive. The admin's added and removed
+   players survive a pre-game refresh, and a pick on a removed player doesn't score.
 6. **End-to-end (Playwright, against the emulators):** join → make picks → kickoff locks picks → picks are
    revealed → a simulated scoring update moves the leaderboard.
 7. **Before Thursday:** run the full worker against a recorded game replayed at speed, and check the standings

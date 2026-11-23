@@ -14,4 +14,8 @@
 - **Site:** Astro, fully static (`dist/`), with React islands for interactive parts. Astro's CSP is on
   (`astro.config.mjs`), so `<ClientRouter />` can't be used; page transitions use native CSS view
   transitions. Add the hosts a page calls to the CSP `directives`.
-- Run `terraform fmt -recursive` in `infra/` and `npm run build` before committing; CI fails otherwise.
+- **Tests come with changes.** Any change to scoring, stat derivation, Firestore rules or auth includes tests
+  in the same PR. Every rule in a spec (`docs/*-spec.md`) has a matching test, and a spec change means a test
+  change. Fix a bug by first adding a test that reproduces it. Don't weaken or delete a test to make CI pass
+  unless the spec changed. Run the test suite before committing.
+- Run `terraform fmt -recursive` in `infra/`, `npm run build` and `npm test` before committing; CI fails otherwise.

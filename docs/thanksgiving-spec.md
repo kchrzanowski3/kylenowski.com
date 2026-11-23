@@ -70,7 +70,9 @@ The most anyone can score in one game is **37**, if they pick a safety correctly
 - **Lead change in the 4th quarter:** **yes** if, at any point in the 4th quarter, a team goes ahead when it was
   tied or behind just before that play. Going from tied to ahead counts. Overtime doesn't count, since it isn't
   the 4th quarter.
-- **First TD scorer:** the list has each team's QBs, RBs, WRs and TEs. "Other player" covers anyone else,
+- **First TD scorer:** the list has each team's QBs, RBs, WRs and TEs from the current roster. Players ruled
+  out or listed inactive drop off the list when the feed reports it. A pick already made on such a player
+  stays, but won't score. "Other player" covers anyone else,
   including defensive, special-teams and lineman TDs. "No TD" wins only if the game has no touchdown.
 - **No touchdown in the game:** longest TD = 0, and the first-TD-scorer answer is "No TD".
 
@@ -85,8 +87,8 @@ The most anyone can score in one game is **37**, if they pick a safety correctly
 
 - **Vegas projected score** for each game, worked out from the betting line:
   favorite = (over/under + spread) ÷ 2, underdog = (over/under − spread) ÷ 2.
-  For example, DAL −3.5 with O/U 47.5 projects DAL 25.5 – PHI 22. It uses the line from the data feed, updates
-  until kickoff, then freezes.
+  For example, DAL −3.5 with O/U 47.5 projects DAL 25.5 – PHI 22. It uses the line from the data feed,
+  refreshes on the pre-game schedule (see "Pre-game refresh"), and freezes at kickoff.
 - **Reference averages** next to every number question (field goals, punts, TDs, turnovers, longest TD, sacks,
   and points for the final score): the NFL per-game average **and each team's per-game average this season**.
   These are calculated from real 2026 game data shortly before Thanksgiving, not entered by hand.
@@ -138,8 +140,10 @@ Plus each player's points for that game, and that game's winner once it's over.
   the override.
 - **Pause the automatic feed** for a game, or re-run scoring.
 - **Spoiler delay:** set how many seconds (0–180) live updates are held back before players see them. It
-  starts at **0** and takes effect immediately. The admin screen always shows the undelayed live values next to
-  what players currently see.
+  starts at **0** and takes effect immediately. The admin screen always shows the live values, without the
+  delay.
+- **No peeking:** before a game kicks off, the admin screen **can't show other players' picks** for that game,
+  the same as every other player's view. After kickoff it shows everything.
 - **Players:** rename, remove, or reset a PIN.
 - **Adjust a kickoff/lock time** if the schedule changes.
 - Every admin change is logged with a timestamp.
@@ -167,6 +171,25 @@ Plus each player's points for that game, and that game's winner once it's over.
   - Only the admin can write overrides.
 - **All of it is managed by Terraform** in `infra/` and goes through the usual PR workflow.
 - **CSP:** the page's Content-Security-Policy has to allow the Firebase/Firestore hosts the app talks to.
+
+## Pre-game refresh
+
+The same Cloud Run job, run in "pre-game" mode by Cloud Scheduler, refreshes everything shown before kickoff:
+
+- the betting line (spread and over/under) and the Vegas projected score
+- kickoff and lock times, in case the schedule changes
+- the first-TD-scorer player lists, from current rosters and inactives
+- the reference averages
+
+Schedule:
+
+| When | How often |
+|---|---|
+| From launch through Wednesday, Nov 25 | daily at 9:00 AM ET |
+| Thursday, Nov 26, until 12:00 PM ET | hourly |
+| Thursday from 12:00 PM ET | done by the live worker on every poll (~15s) until each game's kickoff |
+
+A game's line and player list freeze at its kickoff.
 
 ## Live updates
 
@@ -203,9 +226,3 @@ ESPN feed --poll ~15s--> Cloud Run worker --write only on change--> Firestore ==
 - **Sharing:** share the link `kylenowski.com/thanksgiving` with the family. Search engines are asked not to
   index the page (`noindex`).
 - **After Thanksgiving:** the page stays up as a read-only results archive. No new players or picks.
-
-## Open questions
-
-1. **Admin fairness:** Kyle is both a player and the admin. Proposed: before a game kicks off, the admin screen
-   **can't show other players' picks** for that game, just like everyone else's view. After kickoff it shows
-   everything. OK?

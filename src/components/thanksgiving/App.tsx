@@ -53,6 +53,12 @@ export default function App() {
 
   const me = useMemo(() => (user && players ? players.find((p) => p.id === user.uid) ?? null : null), [user, players]);
 
+  // Right after joining, Auth knows the new player a moment before the player list does. Give it a
+  // few seconds before treating the sign-in as one whose player no longer exists.
+  const [userSeenAt, setUserSeenAt] = useState(0);
+  useEffect(() => setUserSeenAt(Date.now()), [user]);
+  const waitingForPlayer = !!user && !me && now - userSeenAt < 5000;
+
   // Start on the next game to lock (or the last game once they've all started), then stay on it:
   // when a game kicks off, its picks are revealed right where you're looking.
   useEffect(() => {
@@ -73,6 +79,8 @@ export default function App() {
     <div className="tg">
       {me ? (
         <Account clients={clients} me={me} />
+      ) : waitingForPlayer ? (
+        <p className="muted">Signing you in…</p>
       ) : (
         <SignIn clients={clients} players={players} joinOpen={joinOpen} signedInElsewhere={!!user && !me} />
       )}

@@ -102,6 +102,22 @@ export function answerProblems(a: Record<string, unknown>): string[] {
   return problems;
 }
 
+/**
+ * The answers that can be saved now: everything except the answers with a problem (a half-entered
+ * or tied final score, an out-of-range number). Saving these keeps the rest of a player's picks
+ * safe while they finish one question.
+ */
+export function savableAnswers(a: Answers): Answers {
+  const out: Record<string, unknown> = {};
+  const entries = Object.entries(a).filter(([k]) => k !== 'finalAway' && k !== 'finalHome');
+  for (const [k, v] of entries) {
+    if (answerProblems({ [k]: v }).length === 0) out[k] = v;
+  }
+  const final = { finalAway: a.finalAway, finalHome: a.finalHome };
+  if (answerProblems(compactAnswers(final) as Record<string, unknown>).length === 0) Object.assign(out, compactAnswers(final));
+  return out as Answers;
+}
+
 /** Drops unanswered (undefined/null/'') entries so they can be stored as "skipped". */
 export function compactAnswers(a: Record<string, unknown>): Answers {
   const out: Record<string, unknown> = {};

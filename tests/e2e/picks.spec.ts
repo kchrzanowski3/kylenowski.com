@@ -77,7 +77,7 @@ test('join, pick, sign in on another phone, lock at kickoff, reveal', async ({ b
   await expect(alice.getByText('CHI 4.2 · DET 3.6 punts per game')).toBeVisible();
   await alice.getByLabel('CHI final score').fill('20');
   await alice.getByLabel('DET final score').fill('20');
-  await expect(alice.getByTestId('tg-save-status')).toContainText("can’t be a tie");
+  await expect(alice.getByTestId('tg-save-status')).toContainText("Saved, except the final score: it can’t be a tie");
   await alice.getByLabel('DET final score').fill('27');
   await alice.getByRole('group', { name: /Which team scores first/ }).getByRole('button', { name: 'DET' }).click();
   await alice.getByLabel('First TD scorer').selectOption({ label: 'Jahmyr Gibbs (RB)' });

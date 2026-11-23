@@ -5,7 +5,7 @@ import { average, seasonAverages } from '../../src/lib/thanksgiving/averages';
 import { isLocked, nextKickoff } from '../../src/lib/thanksgiving/kickoff';
 import { FREE_PIN_GUESSES, cleanName, isValidPin, nameKey, nameProblem, pinLockMs } from '../../src/lib/thanksgiving/players';
 import { formatPoints, parseLine, vegasProjection } from '../../src/lib/thanksgiving/projection';
-import { answerProblems, answeredCount, compactAnswers } from '../../src/lib/thanksgiving/questions';
+import { answerProblems, answeredCount, compactAnswers, savableAnswers } from '../../src/lib/thanksgiving/questions';
 import type { TeamGameStats } from '../../src/lib/thanksgiving/types';
 
 describe('Vegas projected score', () => {
@@ -75,6 +75,12 @@ describe('answers', () => {
     expect(answerProblems({ firstTdScorer: 'Dak' })).not.toEqual([]);
     expect(answerProblems({ firstTdScorer: 'other' })).toEqual([]);
     expect(answerProblems({ firstTdScorer: 'none' })).toEqual([]);
+  });
+
+  it('saves the other answers while one has a problem', () => {
+    expect(savableAnswers({ punts: 8, finalAway: 21 })).toEqual({ punts: 8 });
+    expect(savableAnswers({ punts: 8, finalAway: 21, finalHome: 21 })).toEqual({ punts: 8 });
+    expect(savableAnswers({ punts: 99, sacks: 3, finalAway: 20, finalHome: 24 })).toEqual({ sacks: 3, finalAway: 20, finalHome: 24 });
   });
 
   it('drops blanks when saving', () => {

@@ -47,7 +47,9 @@ http('tgAuth', async (req, res) => {
   const body = (typeof req.body === 'object' && req.body) || {};
   try {
     const now = Date.now();
-    switch (req.path) {
+    // Route on the last path segment: the cloudfunctions.net URL is /tg-auth/join, and what reaches
+    // the function may or may not still carry the /tg-auth prefix.
+    switch (`/${req.path.split('/').filter(Boolean).pop() ?? ''}`) {
       case '/join':
         res.json(await joinPlayer(db, auth, body, now));
         return;

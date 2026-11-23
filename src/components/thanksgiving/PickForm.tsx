@@ -9,6 +9,7 @@ import {
   answerProblems,
   answeredCount,
   compactAnswers,
+  savableAnswers,
   type Answers,
 } from '../../lib/thanksgiving/questions';
 import type { ScorerPosition, Side, TeamAverages } from '../../lib/thanksgiving/types';
@@ -30,7 +31,7 @@ export function PickForm({ clients, game, me, saved }: Props) {
   const pending = useRef<Answers | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  async function save(answers: Answers) {
+  async function save(answers: Answers, note: string | null = null) {
     pending.current = null;
     setStatus({ kind: 'saving' });
     try {
@@ -38,7 +39,7 @@ export function PickForm({ clients, game, me, saved }: Props) {
         answers,
         updatedAt: serverTimestamp(),
       });
-      setStatus({ kind: 'saved' });
+      setStatus(note ? { kind: 'invalid', text: note } : { kind: 'saved' });
     } catch (e) {
       const locked = e instanceof FirebaseError && e.code === 'permission-denied';
       setStatus({ kind: 'error', text: locked ? 'Not saved: picks for this game are locked.' : `Not saved: ${String(e)}` });
@@ -61,14 +62,12 @@ export function PickForm({ clients, game, me, saved }: Props) {
     const answers = compactAnswers(next as Record<string, unknown>);
     const problems = answerProblems(answers as Record<string, unknown>);
     clearTimeout(timer.current);
-    if (problems.length > 0) {
-      pending.current = null;
-      setStatus({ kind: 'invalid', text: friendly(problems[0]) });
-      return;
-    }
-    pending.current = answers;
+    // With a problem in one answer, still save all the others.
+    const toSave = problems.length > 0 ? savableAnswers(answers) : answers;
+    const note = problems.length > 0 ? friendly(problems[0]) : null;
+    pending.current = toSave;
     setStatus({ kind: 'saving' });
-    timer.current = setTimeout(() => void save(answers), 600);
+    timer.current = setTimeout(() => void save(toSave, note), 600);
   }
 
   const a = draft;
@@ -159,9 +158,9 @@ function statusText(s: Status): string {
 }
 
 function friendly(problem: string): string {
-  if (problem.includes('needs both')) return 'Not saved yet: enter both teams’ final scores.';
-  if (problem.includes('tie')) return 'Not saved yet: the final score can’t be a tie.';
-  return `Not saved yet: ${problem}.`;
+  if (problem.includes('needs both')) return 'Saved, except the final score: enter both teams’ scores.';
+  if (problem.includes('tie')) return 'Saved, except the final score: it can’t be a tie.';
+  return `Saved, except: ${problem}.`;
 }
 
 /** "CHI 1.8 · DET 2.1 field goals made per game (each team's own) · NFL average 1.9 per team". */

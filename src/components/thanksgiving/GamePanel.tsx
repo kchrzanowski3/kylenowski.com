@@ -26,6 +26,7 @@ export function GamePanel({ clients, game, me, players, now }: Props) {
   const [revealRetry, setRevealRetry] = useState(0);
   const [mineRetry, setMineRetry] = useState(0);
   const meId = me?.id ?? null;
+  useEffect(() => setMineRetry(0), [meId]); // each sign-in gets its own retries
 
   // Your own saved picks (readable any time). Right after signing in, Firestore can still be using
   // the previous sign-in for a moment and refuse the read; try again shortly rather than showing an

@@ -213,12 +213,13 @@ resource "google_cloud_run_v2_service_iam_member" "tg_refresh_scheduler" {
 }
 
 # --- Pre-game refresh schedule (spec, "Pre-game refresh") ---------------------
-# Daily at 9:00 AM ET through Wednesday, and hourly on Thursday until noon ET,
-# when the live worker (PR 2) takes over. CI also runs it once after each deploy.
+# Daily at 9:00 AM ET from launch through Wednesday (Nov 23-25 only, so it stops
+# by itself), and hourly on Thursday until noon ET, when the live worker (PR 2)
+# takes over. CI also runs it once after each deploy.
 # Games that have kicked off are frozen, so later runs don't change them.
 locals {
   tg_refresh_schedules = {
-    "tg-pregame-daily"    = "0 9 * * *"
+    "tg-pregame-daily"    = "0 9 23-25 11 *"
     "tg-pregame-thursday" = "0 0-11 26 11 *"
   }
 }

@@ -173,6 +173,10 @@ jobs:
   hosting:
     needs: [build, test, infra]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # GCP login (Workload Identity Federation)
+      pull-requests: write # put the preview link in the PR description
     steps:
       - uses: actions/checkout@v7 # for firebase.json
       - uses: actions/download-artifact@v8
@@ -196,6 +200,7 @@ jobs:
           echo "### Deployed ${GITHUB_SHA::7} to https://kylenowski.com" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy preview channel (PRs)
+        id: preview
         if: github.event_name == 'pull_request'
         run: |
           npx --yes "$FIREBASE_TOOLS" hosting:channel:deploy "pr-${{ github.event.number }}" \
@@ -203,3 +208,22 @@ jobs:
           url="$(jq -r '.result[].url' channel.json)"
           echo "### Preview: $url" >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=Preview URL::$url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      # Keeps one block at the top of the PR description, replaced on every push: the preview link
+      # and one-click links to the pages whose built HTML differs from the live site
+      # (scripts/pr-preview-body.mjs).
+      - name: Put the preview links at the top of the PR description (PRs)
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.number }}
+          URL: ${{ steps.preview.outputs.url }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          DIST: dist
+          LIVE: https://kylenowski.com
+        run: |
+          BODY="$(gh api "repos/$REPO/pulls/$PR" --jq '.body // ""')" node scripts/pr-preview-body.mjs > body.md
+          gh api -X PATCH "repos/$REPO/pulls/$PR" -F body=@body.md > /dev/null
+          { echo '### PR description links'; sed -n '2,3p' body.md; } >> "$GITHUB_STEP_SUMMARY"

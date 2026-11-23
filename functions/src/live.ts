@@ -68,7 +68,13 @@ async function loadGames(db: Firestore): Promise<GameRow[]> {
  * Polls the feed once and stores what changed in tgLive. A paused game (tgOverrides.paused) keeps
  * its stored feed values. Returns the ids of games whose feed changed.
  */
-export async function pollFeed(db: Firestore, fetchJson: FetchJson, now: number, games: GameRow[]): Promise<string[]> {
+export async function pollFeed(
+  db: Firestore,
+  fetchJson: FetchJson,
+  now: number,
+  games: GameRow[],
+  errors: string[] = [],
+): Promise<string[]> {
   const started = games.filter((g) => g.kickoff <= now);
   if (started.length === 0) return [];
   const sb = await fetchJson(`${ESPN_SITE}/scoreboard?dates=${CONTEST_DATE}`);
@@ -76,10 +82,23 @@ export async function pollFeed(db: Firestore, fetchJson: FetchJson, now: number,
   const changed: string[] = [];
 
   for (const g of started) {
-    const status = feedStatus(comps.get(g.id));
-    if (status.state === 'pre') continue; // kicked off on paper, not yet in the feed
+    // One game's feed trouble mustn't stop the others from updating.
+    try {
+      if (await pollGame(db, fetchJson, now, g, comps.get(g.id))) changed.push(g.id);
+    } catch (e) {
+      errors.push(`${g.away.abbr} @ ${g.home.abbr}: ${String(e)}`);
+    }
+  }
+  return changed;
+}
+
+/** Polls one game; true if its stored feed changed. */
+async function pollGame(db: Firestore, fetchJson: FetchJson, now: number, g: GameRow, competition: any): Promise<boolean> {
+  {
+    const status = feedStatus(competition);
+    if (status.state === 'pre') return false; // kicked off on paper, not yet in the feed
     const [liveSnap, overrideSnap] = await Promise.all([db.doc(`tgLive/${g.id}`).get(), db.doc(`tgOverrides/${g.id}`).get()]);
-    if (overrideSnap.get('paused') === true) continue;
+    if (overrideSnap.get('paused') === true) return false;
     const prev = (liveSnap.exists ? liveSnap.data() : null) as LiveDoc | null;
 
     const summary = await fetchJson(`${ESPN_SITE}/summary?event=${g.id}`);
@@ -99,12 +118,11 @@ export async function pollFeed(db: Firestore, fetchJson: FetchJson, now: number,
       stats = { ...stats, firstTd: { ...stats.firstTd, scorerId: scorers[playId] ?? null } };
     }
 
-    if (prev && same(prev.feed, stats)) continue;
+    if (prev && same(prev.feed, stats)) return false;
     const recent = [...(prev?.recent ?? []), { at: now, stats }].filter((s) => s.at >= now - HISTORY_MS);
     await db.doc(`tgLive/${g.id}`).set({ feed: stats, feedAt: now, recent, scorers } satisfies LiveDoc);
-    changed.push(g.id);
+    return true;
   }
-  return changed;
 }
 
 /** The feed stats players may see now: the newest snapshot at least `delayMs` old. */
@@ -171,6 +189,15 @@ export async function publish(db: Firestore, now: number, gamesIn?: GameRow[]): 
   return report;
 }
 
+/** Ends this call's lease, so the next minute's call can start right away. */
+export async function releaseLease(db: Firestore, holder: string, now: number): Promise<void> {
+  const ref = db.doc('tgMeta/worker');
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.get('leaseHolder') === holder) tx.set(ref, { leaseUntil: Timestamp.fromMillis(now) }, { merge: true });
+  });
+}
+
 /** Takes or renews the worker lease. False if another call holds it. */
 export async function takeLease(db: Firestore, holder: string, now: number, forMs = 75_000): Promise<boolean> {
   const ref = db.doc('tgMeta/worker');
@@ -220,7 +247,7 @@ export async function runLive(
   for (;;) {
     const t = clock();
     try {
-      await pollFeed(db, fetchJson, t, games);
+      await pollFeed(db, fetchJson, t, games, report.errors);
     } catch (e) {
       report.errors.push(`poll: ${String(e)}`);
     }
@@ -239,5 +266,8 @@ export async function runLive(
     await sleep(Math.max(0, next - clock()));
     if (!(await takeLease(db, opts.holder, clock()))) break;
   }
+  // Hand over to the next minute's call. Holding the lease past the end of this call would make
+  // that call find it taken and skip a whole minute of updates.
+  await releaseLease(db, opts.holder, clock());
   return report;
 }

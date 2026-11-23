@@ -245,7 +245,7 @@ Schedule:
 |---|---|
 | From launch through Wednesday, Nov 25 | daily at 9:00 AM ET |
 | Thursday, Nov 26, until 12:00 PM ET | hourly |
-| Thursday from 12:00 PM ET | done by the live worker on every poll (~15s) until each game's kickoff |
+| Thursday from 12:00 PM ET | done by the live worker once a minute (each scheduled call) until each game's kickoff |
 
 A game's line and player list freeze at its kickoff.
 

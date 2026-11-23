@@ -29,6 +29,8 @@ const show = (v: unknown) => (v === undefined || v === null ? '—' : typeof v =
 /** Parses what the admin typed for an override into the value tg-admin expects. */
 export function parseOverride(key: OverrideKey, raw: string): unknown {
   const t = raw.trim();
+  // An empty box would otherwise become 0 (Number('')) and silently zero a stat.
+  if (t === '') throw new Error('Type a value first.');
   if (NUMBER_KEYS.includes(key)) return Number(t);
   if (BOOL_KEYS.includes(key)) return t === 'yes' || t === 'true';
   if (key === 'state') return t;

@@ -13,6 +13,11 @@ describe('parseOverride', () => {
     expect(() => parseOverride('halftime', '10-14')).toThrow();
   });
 
+  it("refuses an empty box instead of setting the stat to 0", () => {
+    expect(() => parseOverride('home', '')).toThrow(/Type a value/);
+    expect(() => parseOverride('punts', '   ')).toThrow(/Type a value/);
+  });
+
   it('produces values the admin service accepts', () => {
     expect(overrideProblem('punts', parseOverride('punts', '7'))).toBeNull();
     expect(overrideProblem('halftime', parseOverride('halftime', '{"away":10,"home":14}'))).toBeNull();

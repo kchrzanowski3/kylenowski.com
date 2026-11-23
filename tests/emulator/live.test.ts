@@ -70,6 +70,22 @@ describe('polling the feed', () => {
     expect((await live('g1')).feed.punts).toBe(7);
   });
 
+  it("keeps polling the other games when one game's feed fails", async () => {
+    await db.doc('tgGames/g2').update({ kickoff: Timestamp.fromMillis(T0 - 60_000) });
+    const errors: string[] = [];
+    const fetchJson: FetchJson = async (url) => {
+      if (url.includes('scoreboard?dates=20261126')) {
+        const status = { period: 2, displayClock: '1:00', type: { state: 'in', name: 'STATUS_IN_PROGRESS' } };
+        return { events: [{ id: 'g1', competitions: [{ status }] }, { id: 'g2', competitions: [{ status }] }] };
+      }
+      if (url.includes('summary?event=g1')) throw new Error('HTTP 503');
+      if (url.includes('summary?event=g2')) return load('summary-mia-at-buf-2026-wk11.json');
+      return { participants: [] };
+    };
+    expect(await pollFeed(db, fetchJson, T0, await gameRows(), errors)).toEqual(['g2']);
+    expect(errors).toEqual(['NO @ CHI: Error: HTTP 503']);
+  });
+
   it('skips a game the admin paused, keeping its stored values', async () => {
     const espn = fakeEspn();
     await pollFeed(db, espn.fetchJson, T0, await gameRows());
@@ -171,6 +187,15 @@ describe('scheduled calls', () => {
     });
     expect(report).toMatchObject({ ran: true, polls: 4, errors: [] });
     expect((await db.doc('tgMeta/worker').get()).get('lastPollAt').toMillis()).toBe(T0 + 45_000);
+  });
+
+  it('hand over: the next minute\'s call runs, so no minute is skipped', async () => {
+    await db.doc('tgGames/g2').update({ kickoff: Timestamp.fromMillis(T0 - 60_000) });
+    let t = T0;
+    const opts = (holder: string) => ({ holder, budgetMs: 50_000, clock: () => t, sleep: async (ms: number) => { t += ms; } });
+    expect((await runLive(db, fakeEspn().fetchJson, opts('minute-1'))).ran).toBe(true);
+    t = T0 + 60_000; // Cloud Scheduler's next call
+    expect(await runLive(db, fakeEspn().fetchJson, opts('minute-2'))).toMatchObject({ ran: true, polls: 4 });
   });
 
   it("don't overlap: a second call exits while the first holds the lease", async () => {

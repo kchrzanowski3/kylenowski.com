@@ -144,7 +144,8 @@ export async function publish(db: Firestore, now: number, gamesIn?: GameRow[]): 
     const overrides = (overrideSnap.get('stats') as Overrides | undefined) ?? null;
     const prevPublished = resultSnap.exists ? (resultSnap.get('stats') as GameStats) : null;
     const base = g.kickoff > now ? null : (delayedStats(live, now, delayMs) ?? prevPublished ?? null);
-    const stats = applyOverrides(base ?? preGameStats(), g.kickoff > now ? null : overrides);
+    // Missing fields (an older record, say) fall back to the pre-game defaults.
+    const stats = applyOverrides({ ...preGameStats(), ...(base ?? {}) }, g.kickoff > now ? null : overrides);
 
     const picks: PlayerPick[] =
       g.kickoff > now

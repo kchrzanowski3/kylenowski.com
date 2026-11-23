@@ -24,12 +24,14 @@ import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 setLogLevel('silent'); // denied writes are expected here; don't log each one
 
 let env: RulesTestEnvironment;
+const ADMIN = 'admin@example.com';
 const HOUR = 3_600_000;
 
 beforeAll(async () => {
   env = await initializeTestEnvironment({
     projectId: 'demo-kylenowski',
-    firestore: { rules: readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: 8080 },
+    // Deployed rules get the admin's real address in place of the placeholder (infra/firebase.tf).
+    firestore: { rules: readFileSync('firestore.rules', 'utf8').replaceAll('__ADMIN_EMAIL__', ADMIN), host: '127.0.0.1', port: 8080 },
   });
 });
 afterAll(() => env.cleanup());
@@ -46,6 +48,11 @@ beforeEach(async () => {
     await setDoc(doc(db, 'tgSecrets/bob'), { pinHash: 'x', salt: 'y', failures: 0, lockedUntil: null });
     await setDoc(doc(db, 'tgNames/bob'), { playerId: 'bob' });
     await setDoc(doc(db, 'tgMeta/refresh'), { games: 3 });
+    await setDoc(doc(db, 'tgResults/started'), { score: {} });
+    await setDoc(doc(db, 'tgStandings/overall'), { rows: [] });
+    await setDoc(doc(db, 'tgLive/started'), { feed: {} });
+    await setDoc(doc(db, 'tgOverrides/started'), { stats: {} });
+    await setDoc(doc(db, 'tgAdminLog/1'), { action: 'rescore' });
     for (const g of ['upcoming', 'started']) {
       await setDoc(doc(db, `tgGames/${g}/picks/bob`), { answers: { punts: 8 }, updatedAt: Timestamp.now() });
     }
@@ -170,3 +177,49 @@ describe('everything else', () => {
     await assertFails(setDoc(doc(alice(), 'tgMeta/refresh'), { games: 0 }));
   });
 });
+
+describe('admin', () => {
+  const admin = () => fs(env.authenticatedContext('kyle', { email: ADMIN, email_verified: true }));
+  const adminCaps = () => fs(env.authenticatedContext('kyle2', { email: 'Admin@Example.com', email_verified: true }));
+  const unverified = () => fs(env.authenticatedContext('kyle3', { email: ADMIN, email_verified: false }));
+  const someone = () => fs(env.authenticatedContext('eve', { email: 'eve@example.com', email_verified: true }));
+
+  it('the admin (verified address) can read the live values, overrides and log', async () => {
+    for (const db of [admin(), adminCaps()]) {
+      await assertSucceeds(getDoc(doc(db, 'tgLive/started')));
+      await assertSucceeds(getDoc(doc(db, 'tgOverrides/started')));
+      await assertSucceeds(getDocs(collection(db, 'tgAdminLog')));
+    }
+  });
+
+  it('nobody else can: not players, not other accounts, not the admin address unverified', async () => {
+    for (const db of [alice(), anon(), someone(), unverified()]) {
+      await assertFails(getDoc(doc(db, 'tgLive/started')));
+      await assertFails(getDoc(doc(db, 'tgOverrides/started')));
+      await assertFails(getDocs(collection(db, 'tgAdminLog')));
+    }
+  });
+
+  it('only the admin service changes things: no browser can write overrides, the spoiler delay, results or standings', async () => {
+    for (const db of [admin(), alice()]) {
+      await assertFails(setDoc(doc(db, 'tgOverrides/started'), { stats: { punts: 1 } }));
+      await assertFails(setDoc(doc(db, 'tgMeta/config'), { spoilerDelaySec: 0 }));
+      await assertFails(setDoc(doc(db, 'tgResults/started'), { score: {} }));
+      await assertFails(setDoc(doc(db, 'tgStandings/overall'), { rows: [] }));
+      await assertFails(setDoc(doc(db, 'tgLive/started'), { feed: {} }));
+    }
+  });
+
+  it("no peeking: the admin can't read other players' picks before kickoff, or anyone's PIN", async () => {
+    await assertFails(getDoc(doc(admin(), 'tgGames/upcoming/picks/bob')));
+    await assertFails(getDocs(collection(admin(), 'tgGames/upcoming/picks')));
+    await assertFails(getDoc(doc(admin(), 'tgSecrets/bob')));
+    await assertSucceeds(getDocs(collection(admin(), 'tgGames/started/picks')));
+  });
+
+  it('published results and standings are public', async () => {
+    await assertSucceeds(getDoc(doc(anon(), 'tgResults/started')));
+    await assertSucceeds(getDoc(doc(anon(), 'tgStandings/overall')));
+  });
+});
+

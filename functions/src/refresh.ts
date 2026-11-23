@@ -155,6 +155,8 @@ export async function runPregameRefresh(
           line: game.line,
           projection: game.line ? vegasProjection(game.line) : null,
           scorers,
+          // The list as built from the feed, before admin edits, so an edit can be undone exactly.
+          ...(built ? { scorersFeed: built } : {}),
           ...(withSeason ? { averages: { away: avg(game.away.id), home: avg(game.home.id), nfl: averages.nfl } } : {}),
           refreshedAt: Timestamp.fromMillis(now),
         },

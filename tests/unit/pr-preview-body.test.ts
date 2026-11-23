@@ -4,7 +4,6 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-// @ts-expect-error plain JS module without type declarations
 import { END, START, changedPages, pageRoute, withPreviewLink } from '../../scripts/pr-preview-body.mjs';
 
 const URL = 'https://kylenowski-com--pr-5-tkojat3u.web.app';

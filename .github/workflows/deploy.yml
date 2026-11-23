@@ -173,6 +173,10 @@ jobs:
   hosting:
     needs: [build, test, infra]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # GCP login (Workload Identity Federation)
+      pull-requests: write # put the preview link in the PR description
     steps:
       - uses: actions/checkout@v7 # for firebase.json
       - uses: actions/download-artifact@v8
@@ -196,6 +200,7 @@ jobs:
           echo "### Deployed ${GITHUB_SHA::7} to https://kylenowski.com" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy preview channel (PRs)
+        id: preview
         if: github.event_name == 'pull_request'
         run: |
           npx --yes "$FIREBASE_TOOLS" hosting:channel:deploy "pr-${{ github.event.number }}" \
@@ -203,3 +208,25 @@ jobs:
           url="$(jq -r '.result[].url' channel.json)"
           echo "### Preview: $url" >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=Preview URL::$url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      # Keeps one preview block at the top of the PR description, replaced on every push.
+      - name: Put the preview link at the top of the PR description (PRs)
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.number }}
+          URL: ${{ steps.preview.outputs.url }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          body="$(gh api "repos/$REPO/pulls/$PR" --jq '.body // ""')"
+          rest="$(printf '%s\n' "$body" \
+            | sed '/<!-- preview-link:start -->/,/<!-- preview-link:end -->/d' \
+            | awk 'NF { started = 1 } started')"
+          block="$(printf '%s\n' \
+            '<!-- preview-link:start -->' \
+            "**Preview:** $URL (built from ${SHA::7}; expires 7 days after the last push)" \
+            '<!-- preview-link:end -->')"
+          gh api -X PATCH "repos/$REPO/pulls/$PR" -f body="$(printf '%s\n\n%s\n' "$block" "$rest")" > /dev/null
+          echo "Preview link is at the top of the PR description." >> "$GITHUB_STEP_SUMMARY"

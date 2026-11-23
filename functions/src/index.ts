@@ -1,18 +1,24 @@
 // Cloud Functions (2nd gen) entry points, deployed by infra/thanksgiving.tf:
 //   tgAuth     public HTTPS: POST /join, /login, /pin   (the sign-in service)
 //   tgRefresh  private HTTPS, called by Cloud Scheduler  (the pre-game refresh)
+//   tgLive     private HTTPS, called by Cloud Scheduler every minute on game day (the live worker)
+//   tgAdmin    public HTTPS, admin's ID token required: POST / {action, ...}  (the admin service)
 
 import { http, type Request, type Response } from '@google-cloud/functions-framework';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
+import { randomUUID } from 'node:crypto';
+import { adminAction, ensureAdminUser, verifyAdmin } from './admin';
 import { AuthError, joinPlayer, loginPlayer, setPin } from './auth';
 import { fetchJson } from './espn-fetch';
+import { runLive } from './live';
 import { runPregameRefresh } from './refresh';
 
 initializeApp();
 const db = getFirestore();
 const auth = getAuth();
+const ADMIN_EMAIL = (process.env.TG_ADMIN_EMAIL ?? '').trim().toLowerCase();
 
 const ALLOWED_ORIGINS = [
   /^https:\/\/kylenowski\.com$/,
@@ -73,6 +79,57 @@ http('tgAuth', async (req, res) => {
     }
     console.error(e);
     res.status(500).json({ error: 'Something went wrong. Try again.' });
+  }
+});
+
+function sendError(res: Response, e: unknown) {
+  if (e instanceof AuthError) {
+    res.status(e.status).json({ error: e.message });
+    return;
+  }
+  console.error(e);
+  res.status(500).json({ error: 'Something went wrong. Try again.' });
+}
+
+// Created when this function starts (and checked by GET /health after each deploy), before anyone
+// could register the admin's address with a password of their own.
+let adminReady: Promise<void> | null = null;
+const prepareAdmin = () => (adminReady ??= ensureAdminUser(auth, ADMIN_EMAIL).catch((e) => {
+  adminReady = null;
+  throw e;
+}));
+
+http('tgAdmin', async (req, res) => {
+  if (cors(req, res)) return;
+  res.set('Cache-Control', 'no-store');
+  try {
+    await prepareAdmin();
+    if (req.method === 'GET') {
+      res.json({ ok: true });
+      return;
+    }
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Use POST.' });
+      return;
+    }
+    const idToken = (req.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
+    const by = await verifyAdmin(auth, idToken, ADMIN_EMAIL);
+    const body = (typeof req.body === 'object' && req.body) || {};
+    res.json(await adminAction(db, auth, by, body, Date.now()));
+  } catch (e) {
+    sendError(res, e);
+  }
+});
+
+http('tgLive', async (_req, res) => {
+  // Cloud Run IAM allows only the scheduler's service account to call this.
+  try {
+    const report = await runLive(db, fetchJson, { holder: randomUUID() });
+    if (report.errors.length > 0) console.error(JSON.stringify({ message: 'live worker errors', ...report }));
+    res.json(report);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: String(e) });
   }
 });
 

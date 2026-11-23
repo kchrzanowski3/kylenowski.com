@@ -1,0 +1,14 @@
+---
+// Admin screen for the Thanksgiving picks (docs/thanksgiving-spec.md, "Admin"). Only the admin's
+// email address can use it: the page is public, but every read and change it makes is checked by
+// Firestore rules and the tg-admin service.
+import Base from '../../layouts/Base.astro';
+import AdminApp from '../../components/thanksgiving/admin/AdminApp';
+import '../../styles/thanksgiving.css';
+---
+
+<Base title="Thanksgiving Picks · Admin" description="Admin screen for the Thanksgiving picks." noindex>
+  <h1>Thanksgiving Picks: admin</h1>
+  <p class="muted"><a href="/thanksgiving">Back to the picks</a></p>
+  <AdminApp client:only="react" />
+</Base>

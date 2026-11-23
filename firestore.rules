@@ -9,12 +9,25 @@ rules_version = '2';
 //                                     others' picks are readable (by anyone) only after kickoff
 //   tgPlayers/{playerId}              public names; written only by the sign-in service
 //   tgMeta/{doc}                      public; written only by the server
+//   tgResults/{gameId}, tgStandings/* public: published scores (after the spoiler delay)
+//   tgLive, tgOverrides, tgAdminLog   the admin only: live values without the delay, overrides, log
 //   tgSecrets, tgNames, tgSeasonGames server only (PIN hashes, name index, stats cache)
+//
+// Every write outside picks goes through server functions (the admin's changes too, via tg-admin).
+// __ADMIN_EMAIL__ is replaced with the admin's address when Terraform deploys these rules
+// (infra/firebase.tf), so the address isn't in this public repo.
 // Tests: tests/emulator/rules.test.ts.
 service cloud.firestore {
   match /databases/{database}/documents {
     function game(gameId) {
       return get(/databases/$(database)/documents/tgGames/$(gameId)).data;
+    }
+
+    // Kyle, signed in with the emailed link (which verifies the address).
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == '__ADMIN_EMAIL__';
     }
 
     function isPlayer(playerId) {
@@ -84,6 +97,27 @@ service cloud.firestore {
 
     match /tgMeta/{doc} {
       allow read: if true;
+    }
+
+    match /tgResults/{gameId} {
+      allow read: if true;
+    }
+
+    match /tgStandings/{doc} {
+      allow read: if true;
+    }
+
+    // No peeking: nothing here gives the admin other players' picks before kickoff.
+    match /tgLive/{gameId} {
+      allow read: if isAdmin();
+    }
+
+    match /tgOverrides/{gameId} {
+      allow read: if isAdmin();
+    }
+
+    match /tgAdminLog/{entry} {
+      allow read: if isAdmin();
     }
   }
 }

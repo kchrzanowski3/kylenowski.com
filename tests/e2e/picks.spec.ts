@@ -126,6 +126,8 @@ test('join, pick, sign in on another phone, lock at kickoff, reveal', async ({ b
     await expect(table).toContainText('Jahmyr Gibbs');
   }
   await expect(bob.getByLabel('Total punts')).toHaveCount(0); // the form is gone
+  // The wide reveal table scrolls inside its own box; the page never scrolls sideways on a phone.
+  expect(await alice.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   // Game 2 is still open for late arrivals.
   await bob.getByRole('button', { name: /PHI @ DAL/ }).click();

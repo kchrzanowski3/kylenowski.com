@@ -4,7 +4,7 @@ A family pick'em for the Thanksgiving NFL games at **kylenowski.com/thanksgiving
 game before kickoff. Everything is scored automatically from live game data, and a leaderboard updates during
 the games.
 
-Status: **PR 1 (picks) built; PR 2 (game day) not built yet.** See "Build order".
+Status: **built** (PR 1: picks; PR 2: game day). See "Build order".
 
 ## Games
 
@@ -129,6 +129,7 @@ The most anyone can score in one game is **37**, if they pick a safety correctly
 ## Standings
 
 ### Overall (default view)
+- Shown at the top of `/thanksgiving` as soon as the first game kicks off.
 - One **running total across all 3 games**.
 - **Tiebreaker for the overall champion:** whoever's game 3 final-score guess (away + home) is closest to that
   game's actual total points. No extra question needed. If that's still tied (equally close, or the tied
@@ -213,7 +214,10 @@ game, with ties as **co-winners** (no tiebreaker).
     passed to Terraform as a sensitive variable and inserted into the Firestore rules when they're deployed,
     so it's never committed or shown in a PR's plan output. The rules accept only that address, and only
     once it's verified (which clicking the emailed link does).
-- **Re-scoring after an admin fix:** saving an override calls a server function, which runs scoring
+- **Admin changes:** the admin screen makes every change through a small admin service (`tg-admin`, a Cloud
+  Function) that accepts only the admin's verified email. Browsers never write game data directly. The admin
+  service creates the admin's account up front, so nobody else can register that address with a password.
+- **Re-scoring after an admin fix:** saving an override calls the admin service, which runs scoring
   once.
 - **Live updates:** see "Live updates" below. All scoring happens on the server, not on phones.
 - **Firestore rules:**
@@ -241,7 +245,7 @@ Schedule:
 |---|---|
 | From launch through Wednesday, Nov 25 | daily at 9:00 AM ET |
 | Thursday, Nov 26, until 12:00 PM ET | hourly |
-| Thursday from 12:00 PM ET | done by the live worker on every poll (~15s) until each game's kickoff |
+| Thursday from 12:00 PM ET | done by the live worker once a minute (each scheduled call) until each game's kickoff |
 
 A game's line and player list freeze at its kickoff.
 
@@ -251,19 +255,20 @@ ESPN's feed has no push or webhooks, and paid sports-data push feeds are enterpr
 polls. The path from the database to phones is push.
 
 ```
-ESPN feed --poll ~15s--> Cloud Run worker --write only on change--> Firestore ==push==> phones
+ESPN feed --poll ~15s--> live worker (tg-live) --write only on change--> Firestore ==push==> phones
 ```
 
 - **Game window:** **Thursday, Nov 26, 12:00 PM ET** (an hour before the first kickoff) to **midnight ET**.
-- **Worker:**
-  - Cloud Scheduler starts a Cloud Run job at the start of the window.
-  - It loops: poll the ESPN scoreboard and the summaries of in-progress games every ~15 seconds, recompute the
-    stats and scores, and write to Firestore **only when something changed**.
-  - It shuts down at midnight ET.
-  - It runs the whole window, even after all 3 games are final, so late stat corrections from ESPN still get
-    picked up.
-- **Watchdog:** a second schedule, every 5 minutes during the window, restarts the worker if it isn't
-  running. The admin screen shows "last update N seconds ago".
+- **Worker:** a Cloud Function (`tg-live`) that Cloud Scheduler calls **every minute** during the window.
+  - Each call polls the ESPN scoreboard and the summaries of in-progress games about every 15 seconds for just
+    under a minute, recomputes the stats and scores, and writes to Firestore **only when something changed**.
+  - A lease in Firestore keeps calls from overlapping. A call that fails is simply followed by the next
+    minute's call, so there's no long-running job and no separate watchdog to restart one.
+  - Calls continue the whole window, even after all 3 games are final, so late stat corrections from ESPN
+    still get picked up.
+  - The first TD's scorer is identified by ESPN athlete id from the play's "scorer" participant (looked up
+    once per play); the name in the play text is the fallback.
+  - The admin screen shows "last update N seconds ago".
 - **Outside the window:** nothing runs. Admin fixes still re-score immediately, because saving an override
   triggers a one-off scoring run.
 - **Spoiler delay:** the worker computes results right away but holds each update for the admin-set delay
@@ -271,8 +276,11 @@ ESPN feed --poll ~15s--> Cloud Run worker --write only on change--> Firestore ==
 - **Phones:** listen to Firestore, so changes appear within about a second of being written, with no refresh.
 - **Overall delay:** about 15–45 seconds behind the ESPN feed, which itself runs slightly behind the live
   broadcast.
-- **Cost:** about 12 hours (noon to midnight ET) of one small container on game day, plus the small sign-in
-  service. Around free-tier levels; small overages are fine.
+- **What the admin sees vs players:** the newest feed values (`tgLive`) are readable only by the admin. Players
+  read the published results (`tgResults`, `tgStandings`), which apply the spoiler delay and the admin's
+  overrides.
+- **Cost:** about 12 hours (noon to midnight ET) of one small function on game day, plus the small sign-in and
+  admin services. Around free-tier levels; small overages are fine.
 
 ## Testing
 

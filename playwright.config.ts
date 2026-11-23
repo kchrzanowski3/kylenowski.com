@@ -2,7 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 // End-to-end tests for /thanksgiving (docs/thanksgiving-spec.md, Testing §6), all local:
 //   - Firestore + Auth emulators (ports from firebase.json)
-//   - the sign-in Cloud Function, run with the Functions Framework on :8090
+//   - the sign-in and admin Cloud Functions, run with the Functions Framework on :8090 and :8091
+//     (the admin is admin@example.com)
 //   - the site, built to talk to those (PUBLIC_TG_EMULATOR=1), served from dist/ by the Hosting
 //     emulator on :5050 (so firebase.json's headers and clean URLs apply too)
 const PROJECT = 'demo-kylenowski';
@@ -22,6 +23,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:5050',
     trace: 'off',
+    screenshot: 'only-on-failure',
   },
   projects: [{ name: 'phone', use: { ...devices['Pixel 7'] } }],
   // `npm run test:e2e` builds the site and the function first; the servers are started directly
@@ -38,6 +40,13 @@ export default defineConfig({
       command: 'node node_modules/@google-cloud/functions-framework/build/src/main.js --source=functions/dist --target=tgAuth --port=8090',
       port: 8090, // it answers GET / with 404 (only POST /join etc. exist), so wait for the port
       env: emulatorEnv,
+      timeout: 60_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node node_modules/@google-cloud/functions-framework/build/src/main.js --source=functions/dist --target=tgAdmin --port=8091',
+      url: 'http://127.0.0.1:8091',
+      env: { ...emulatorEnv, TG_ADMIN_EMAIL: 'admin@example.com' },
       timeout: 60_000,
       reuseExistingServer: false,
     },

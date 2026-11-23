@@ -6,6 +6,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 const SIGN_IN_API = process.env.SMOKE_API ?? 'https://us-central1-kylenowski-com.cloudfunctions.net/tg-auth';
+const ADMIN_API = process.env.SMOKE_ADMIN_API ?? 'https://us-central1-kylenowski-com.cloudfunctions.net/tg-admin';
 
 /** Console errors (CSP violations, failed Firestore connections, crashes) while a page is open. */
 function watchConsole(page: Page): string[] {
@@ -53,3 +54,17 @@ test('the sign-in service answers, from the site\'s origin', async ({ request, b
   expect(res.status()).toBe(404);
   expect((await res.json()).error).toMatch(/doesn.t exist/);
 });
+
+test('the admin page loads, and the admin service answers but refuses without a sign-in', async ({ page, request }) => {
+  const errors = watchConsole(page);
+  expect((await page.goto('/thanksgiving/admin'))?.status()).toBe(200);
+  await expect(page.getByRole('heading', { name: 'Admin sign-in' })).toBeVisible({ timeout: 20_000 });
+  expect(errors).toEqual([]);
+
+  // GET also makes sure the admin's account exists (see functions/src/admin.ts, ensureAdminUser).
+  const health = await request.get(ADMIN_API);
+  expect(health.status()).toBe(200);
+  const refused = await request.post(ADMIN_API, { data: { action: 'rescore' } });
+  expect(refused.status()).toBe(401);
+});
+

@@ -71,8 +71,9 @@ resource "google_firebaserules_ruleset" "firestore" {
 
   source {
     files {
-      name    = "firestore.rules"
-      content = file("${path.module}/../firestore.rules")
+      name = "firestore.rules"
+      # The admin's address goes in at deploy time, so it isn't in the repo (sensitive: hidden in plans).
+      content = replace(file("${path.module}/../firestore.rules"), "__ADMIN_EMAIL__", lower(var.admin_email))
     }
   }
 

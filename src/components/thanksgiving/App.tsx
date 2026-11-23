@@ -1,10 +1,13 @@
 import type { User } from 'firebase/auth';
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { getClients, watchUser, type Clients } from '../../lib/thanksgiving/client';
 import { isLocked } from '../../lib/thanksgiving/kickoff';
 import { toGame, type Game, type Player } from '../../lib/thanksgiving/view';
+import type { Standings as StandingsData } from '../../lib/thanksgiving/scoring';
 import { Account } from './Account';
+import type { GameResult } from './Scoreboard';
+import { Standings } from './Standings';
 import { GamePanel } from './GamePanel';
 import { SignIn } from './SignIn';
 
@@ -25,6 +28,8 @@ export default function App() {
   const [games, setGames] = useState<Game[] | null>(null);
   const [players, setPlayers] = useState<Player[] | null>(null);
   const [tab, setTab] = useState<string | null>(null);
+  const [results, setResults] = useState<Record<string, GameResult>>({});
+  const [standings, setStandings] = useState<StandingsData | null>(null);
   const now = useNow();
 
   useEffect(() => {
@@ -44,10 +49,19 @@ export default function App() {
       (snap) => setPlayers(snap.docs.map((d) => ({ id: d.id, name: d.get('name'), hasPin: !!d.get('hasPin') }))),
       (e) => setLoadError(`Couldn't load the players: ${e.message}`),
     );
+    // Published scores (after the spoiler delay); public, so no sign-in needed.
+    const offResults = onSnapshot(collection(clients.db, 'tgResults'), (snap) =>
+      setResults(Object.fromEntries(snap.docs.map((d) => [d.id, { stats: d.get('stats'), score: d.get('score') } as GameResult]))),
+    );
+    const offStandings = onSnapshot(doc(clients.db, 'tgStandings/overall'), (snap) =>
+      setStandings(snap.exists() ? (snap.data() as StandingsData) : null),
+    );
     return () => {
       offUser();
       offGames();
       offPlayers();
+      offResults();
+      offStandings();
     };
   }, [clients]);
 
@@ -85,6 +99,8 @@ export default function App() {
         <SignIn clients={clients} players={players} joinOpen={joinOpen} signedInElsewhere={!!user && !me} />
       )}
 
+      {standings && standings.status !== 'pre' && <Standings standings={standings} games={games} players={players} me={me} />}
+
       {games.length === 0 ? (
         <p className="muted">The games will show up here shortly.</p>
       ) : (
@@ -105,7 +121,9 @@ export default function App() {
               </button>
             ))}
           </nav>
-          {active && <GamePanel key={active.id} clients={clients} game={active} me={me} players={players} now={now} />}
+          {active && (
+            <GamePanel key={active.id} clients={clients} game={active} me={me} players={players} now={now} result={results[active.id] ?? null} />
+          )}
         </>
       )}
     </div>

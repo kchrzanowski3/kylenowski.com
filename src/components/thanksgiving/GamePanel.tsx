@@ -8,6 +8,7 @@ import type { Answers } from '../../lib/thanksgiving/questions';
 import { countdown, type Game, type Pick, type Player } from '../../lib/thanksgiving/view';
 import { PickForm } from './PickForm';
 import { RevealTable } from './RevealTable';
+import { Scoreboard, type GameResult } from './Scoreboard';
 
 interface Props {
   clients: Clients;
@@ -15,9 +16,10 @@ interface Props {
   me: Player | null;
   players: Player[];
   now: number;
+  result: GameResult | null;
 }
 
-export function GamePanel({ clients, game, me, players, now }: Props) {
+export function GamePanel({ clients, game, me, players, now, result }: Props) {
   const locked = isLocked(game.kickoff, now);
   // Your saved picks, tagged with whose they are, so the form never starts from another sign-in's
   // (or a not-yet-loaded) state.
@@ -103,6 +105,7 @@ export function GamePanel({ clients, game, me, players, now }: Props) {
         <PickForm key={me.id} clients={clients} game={game} me={me} saved={mine.answers} now={now} />
       )}
       {!locked && !me && <p className="muted">Sign in above to make your picks. Everyone's picks are shown here at kickoff.</p>}
+      {locked && <Scoreboard game={game} result={result} players={players} />}
       {locked && <RevealTable game={game} picks={everyone} players={players} me={me} />}
     </section>
   );

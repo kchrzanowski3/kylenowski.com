@@ -13,7 +13,7 @@ const connectSrc = [
 ];
 // Builds for the end-to-end tests talk to the local emulators and sign-in service instead.
 if (process.env.PUBLIC_TG_EMULATOR === '1') {
-  connectSrc.push('http://127.0.0.1:8080', 'http://127.0.0.1:9099', 'http://127.0.0.1:8090');
+  connectSrc.push('http://127.0.0.1:8080', 'http://127.0.0.1:9099', 'http://127.0.0.1:8090', 'http://127.0.0.1:8091');
 }
 
 // Fully static build (dist/), served by Firebase Hosting. Interactive parts are

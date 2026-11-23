@@ -169,3 +169,41 @@
 .tg-reveal tbody th { position: sticky; left: 0; background: var(--bg); font-weight: 500; }
 .tg-reveal thead th { background: var(--tg-soft); }
 .tg-reveal .tg-me { color: var(--accent); }
+
+/* Standings and scoreboards */
+.tg-standings h2 { margin: 0 0 0.5rem; font-size: 1.3rem; }
+.tg-projected-note { font-size: 0.9rem; color: var(--muted); margin: 0 0 0.5rem; }
+.tg-projected { font-style: italic; color: var(--muted); }
+.tg-champion { font-weight: 700; font-size: 1.05rem; margin: 0.25rem 0 0.75rem; }
+.tg-board { list-style: none; padding: 0; margin: 0; border: 1px solid var(--tg-line); border-radius: 0.75rem; overflow: hidden; }
+.tg-board > li + li { border-top: 1px solid var(--tg-line); }
+.tg-board > li.tg-me { background: var(--tg-soft); }
+.tg-board-row {
+  display: grid; grid-template-columns: 2rem 1fr auto; gap: 0.5rem; align-items: center;
+  width: 100%; padding: 0.6rem 0.9rem; border: 0; background: none; color: var(--fg); text-align: left; cursor: pointer; font: inherit;
+}
+.tg-rank { font-weight: 700; color: var(--muted); }
+.tg-points { font-weight: 700; font-size: 1.1rem; }
+.tg-board-games { margin: 0; padding: 0 0.9rem 0.6rem 3.4rem; font-size: 0.9rem; }
+.tg-scoreboard { display: grid; gap: 0.5rem; margin-top: 1rem; }
+.tg-livescore { font-size: 1.2rem; margin: 0; }
+.tg-game-totals { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; }
+.tg-chip-static { border: 1px solid var(--tg-line); border-radius: 999px; padding: 0.2rem 0.7rem; font-size: 0.9rem; }
+.tg-categories td, .tg-categories th { white-space: normal; }
+.tg-badge { font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 999px; border: 1px solid var(--tg-line); }
+.tg-badge-final { border-color: var(--tg-ok); color: var(--tg-ok); }
+.tg-badge-live { border-color: var(--accent); color: var(--accent); }
+
+/* Admin */
+.tg-admin h2 { font-size: 1.15rem; }
+.tg-action { display: inline-flex; gap: 0.4rem; align-items: center; margin: 0.15rem 0.4rem 0.15rem 0; }
+.tg-action .tg-primary, .tg-action .tg-danger { padding: 0.35rem 0.7rem; font-size: 0.85rem; }
+.tg-danger { border: 0; border-radius: 0.5rem; background: var(--tg-bad); color: #fff; font-weight: 600; cursor: pointer; }
+.tg-override { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
+.tg-override-input { width: 9rem; font: inherit; padding: 0.3rem 0.4rem; border: 1px solid var(--tg-line); border-radius: 0.4rem; background: var(--bg); color: var(--fg); }
+.tg-admin-players { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.4rem; }
+.tg-admin-players input, .tg-scorer-editor input, .tg-scorer-editor select { font: inherit; padding: 0.3rem 0.5rem; border: 1px solid var(--tg-line); border-radius: 0.4rem; background: var(--bg); color: var(--fg); }
+.tg-log { list-style: none; padding: 0; margin: 0; font-size: 0.85rem; display: grid; gap: 0.3rem; }
+.tg-log code { font-size: 0.8rem; word-break: break-all; }
+.tg-scorer-editor { margin-top: 0.75rem; }
+.tg-scorer-editor ul { padding-left: 1.2rem; }

@@ -6,7 +6,10 @@ import {
   connectAuthEmulator,
   indexedDBLocalPersistence,
   initializeAuth,
+  isSignInWithEmailLink,
   onAuthStateChanged,
+  sendSignInLinkToEmail,
+  signInWithEmailLink,
   signInWithCustomToken,
   signOut,
   type Auth,
@@ -117,4 +120,71 @@ export async function changePin(auth: Auth, pin: string): Promise<void> {
 
 export function switchPlayer(auth: Auth): Promise<void> {
   return signOut(auth);
+}
+
+// --- Admin (/thanksgiving/admin) --------------------------------------------------------------
+// A separate Firebase app instance, so the admin's sign-in never replaces a player sign-in in the
+// same browser.
+
+const ADMIN_API: string =
+  import.meta.env.PUBLIC_TG_ADMIN_API ?? 'https://us-central1-kylenowski-com.cloudfunctions.net/tg-admin';
+const ADMIN_EMAIL_KEY = 'tgAdminEmail';
+let adminClients: Promise<Clients> | null = null;
+
+export function getAdminClients(): Promise<Clients> {
+  adminClients ??= (async () => {
+    const app = initializeApp(await loadConfig(), 'admin');
+    const auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });
+    const db = getFirestore(app);
+    if (EMULATOR) {
+      connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+      connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    }
+    return { app, auth, db };
+  })();
+  return adminClients;
+}
+
+/** Emails a one-time sign-in link that comes back to this page. */
+export async function sendAdminLink(auth: Auth, email: string): Promise<void> {
+  await sendSignInLinkToEmail(auth, email, { url: `${location.origin}/thanksgiving/admin`, handleCodeInApp: true });
+  try {
+    localStorage.setItem(ADMIN_EMAIL_KEY, email);
+  } catch {
+    // private window: we'll ask for the address again when the link is opened
+  }
+}
+
+/** If this page was opened from the emailed link, finishes signing in. Returns true if it did. */
+export async function completeAdminLink(auth: Auth, askEmail: () => string | null): Promise<boolean> {
+  if (!isSignInWithEmailLink(auth, location.href)) return false;
+  let email: string | null = null;
+  try {
+    email = localStorage.getItem(ADMIN_EMAIL_KEY);
+  } catch {
+    email = null;
+  }
+  email ??= askEmail();
+  if (!email) return false;
+  await signInWithEmailLink(auth, email, location.href);
+  history.replaceState(null, '', location.pathname); // drop the one-time code from the address bar
+  return true;
+}
+
+export async function adminCall<T = Record<string, unknown>>(auth: Auth, body: Record<string, unknown>): Promise<T> {
+  const user = auth.currentUser;
+  if (!user) throw new ApiError('Sign in first.');
+  let res: Response;
+  try {
+    res = await fetch(ADMIN_API, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${await user.getIdToken()}` },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError("Couldn't reach the admin service.");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(data.error ?? `Something went wrong (HTTP ${res.status}).`);
+  return data as T;
 }

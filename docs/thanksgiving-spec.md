@@ -137,6 +137,9 @@ Plus each player's points for that game, and that game's winner once it's over.
 - **Fix any stat or result.** An override wins over the live feed, and the screen shows both the feed value and
   the override.
 - **Pause the automatic feed** for a game, or re-run scoring.
+- **Spoiler delay:** set how many seconds (0–180) live updates are held back before players see them. It
+  starts at **0** and takes effect immediately. The admin screen always shows the undelayed live values next to
+  what players currently see.
 - **Players:** rename, remove, or reset a PIN.
 - **Adjust a kickoff/lock time** if the schedule changes.
 - Every admin change is logged with a timestamp.
@@ -174,20 +177,35 @@ polls. The path from the database to phones is push.
 ESPN feed --poll ~15s--> Cloud Run worker --write only on change--> Firestore ==push==> phones
 ```
 
+- **Game window:** **Thursday, Nov 26, 12:00 PM ET** (an hour before the first kickoff) to **midnight ET**.
 - **Worker:**
-  - Cloud Scheduler starts a Cloud Run job about 15 minutes before the first kickoff.
+  - Cloud Scheduler starts a Cloud Run job at the start of the window.
   - It loops: poll the ESPN scoreboard and the summaries of in-progress games every ~15 seconds, recompute the
     stats and scores, and write to Firestore **only when something changed**.
-  - It exits once all 3 games are final.
-- **Watchdog:** a second schedule, every 5 minutes during the game window, restarts the worker if it isn't
+  - It shuts down at midnight ET.
+  - It runs the whole window, even after all 3 games are final, so late stat corrections from ESPN still get
+    picked up.
+- **Watchdog:** a second schedule, every 5 minutes during the window, restarts the worker if it isn't
   running. The admin screen shows "last update N seconds ago".
+- **Outside the window:** nothing runs. Admin fixes still re-score immediately, because saving an override
+  triggers a one-off scoring run.
+- **Spoiler delay:** the worker computes results right away but holds each update for the admin-set delay
+  (default 0 seconds) before publishing it to what players see.
 - **Phones:** listen to Firestore, so changes appear within about a second of being written, with no refresh.
 - **Overall delay:** about 15–45 seconds behind the ESPN feed, which itself runs slightly behind the live
   broadcast.
 - **Cost:** about 8 hours of one small container on game day, within the free tier.
 
+## Launch and afterwards
+
+- **Picks open** as soon as the page goes live (target: Wednesday, Nov 25), and stay open for each game until
+  its kickoff.
+- **Sharing:** share the link `kylenowski.com/thanksgiving` with the family. Search engines are asked not to
+  index the page (`noindex`).
+- **After Thanksgiving:** the page stays up as a read-only results archive. No new players or picks.
+
 ## Open questions
 
-1. **Spoiler delay:** people streaming are often 30–60+ seconds behind cable, so the leaderboard could show a
-   play before their TV does. Options: no delay; a fixed ~60-second delay; or a delay adjustable from the admin
-   screen. Proposed: adjustable, starting at 0.
+1. **Admin fairness:** Kyle is both a player and the admin. Proposed: before a game kicks off, the admin screen
+   **can't show other players' picks** for that game, just like everyone else's view. After kickoff it shows
+   everything. OK?

@@ -24,3 +24,8 @@ output "firebase_required_dns" {
     www  = google_firebase_hosting_custom_domain.www.required_dns_updates
   }
 }
+
+output "thanksgiving_auth_url" {
+  description = "The sign-in function (the page calls https://us-central1-kylenowski-com.cloudfunctions.net/tg-auth)."
+  value       = google_cloudfunctions2_function.tg["auth"].url
+}

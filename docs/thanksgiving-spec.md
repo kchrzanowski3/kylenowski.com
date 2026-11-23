@@ -4,7 +4,7 @@ A family pick'em for the Thanksgiving NFL games at **kylenowski.com/thanksgiving
 game before kickoff. Everything is scored automatically from live game data, and a leaderboard updates during
 the games.
 
-Status: **spec only, not built yet.**
+Status: **PR 1 (picks) built; PR 2 (game day) not built yet.** See "Build order".
 
 ## Games
 
@@ -204,7 +204,8 @@ game, with ties as **co-winners** (no tiebreaker).
 - **Data:** Firestore. Phones subscribe to the game and standings data, so the leaderboard updates live with
   no refresh.
 - **Sign-in:** Firebase Auth.
-  - **Players:** a small **sign-in service** on Cloud Run handles joining and logging in. It checks the name
+  - **Players:** a small **sign-in service** (`tg-auth`, a Cloud Function, 2nd gen, which runs on Cloud Run)
+    handles joining and logging in. It checks the name
     and PIN (PINs are stored hashed and never readable by phones), limits wrong PIN guesses, and returns a
     Firebase sign-in token for that player. This is what lets the same player sign in on a second device.
   - **Admin:** signs in with an **emailed sign-in link** (Firebase's passwordless email sign-in), which
@@ -212,7 +213,7 @@ game, with ties as **co-winners** (no tiebreaker).
     passed to Terraform as a sensitive variable and inserted into the Firestore rules when they're deployed,
     so it's never committed or shown in a PR's plan output. The rules accept only that address, and only
     once it's verified (which clicking the emailed link does).
-- **Re-scoring after an admin fix:** saving an override calls the same Cloud Run service, which runs scoring
+- **Re-scoring after an admin fix:** saving an override calls a server function, which runs scoring
   once.
 - **Live updates:** see "Live updates" below. All scoring happens on the server, not on phones.
 - **Firestore rules:**
@@ -226,7 +227,8 @@ game, with ties as **co-winners** (no tiebreaker).
 
 ## Pre-game refresh
 
-The same Cloud Run job, run in "pre-game" mode by Cloud Scheduler, refreshes everything shown before kickoff:
+A Cloud Function (`tg-refresh`), called by Cloud Scheduler, refreshes everything shown before kickoff (CI also
+runs it once after each deploy):
 
 - the betting line (spread and over/under) and the Vegas projected score
 - kickoff and lock times, in case the schedule changes
@@ -305,13 +307,16 @@ Tests are written alongside the code and run in CI on every PR (a `test` job nex
    - only the admin can write overrides, change the spoiler delay or edit the first-TD-scorer list
    - the admin is only the configured email address, and only once it's verified
    - PIN-protected names can't be taken over without the PIN
-   - a lock that has passed can't be reopened by moving kickoff later
+   - clients can't change a game, so they can't move a kickoff to reopen picks (the pre-game refresh never
+     moves a kickoff that has passed; that's tested with the refresh, below)
    - standings, the player list and revealed picks are readable without signing in; PINs never are
 4. **Sign-in service (Vitest):** joining with a name already taken (ignoring case) is refused; a wrong PIN is
    refused and repeated wrong guesses are slowed down; a right PIN signs in on a new device; players can add
    or change their own PIN; joining closes at game 3's kickoff.
 5. **First-TD-scorer list:** built from a recorded depth chart, it has each team's top 2 QBs, top 2 RBs, 3
-   starting WRs and starting TE, and drops players ruled out or inactive. The admin's added and removed
+   starting WRs and starting TE, and drops players ruled out or inactive. Run against recorded feeds, the
+   pre-game refresh writes the games, lines, projections and averages, and leaves a game that has kicked off
+   untouched (its lock never reopens). The admin's added and removed
    players survive a pre-game refresh, and a pick on a removed player doesn't score.
 6. **End-to-end (Playwright, against the emulators):** join → make picks → kickoff locks picks → picks are
    revealed → a simulated scoring update moves the leaderboard.

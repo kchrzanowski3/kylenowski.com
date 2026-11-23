@@ -1,11 +1,89 @@
 rules_version = '2';
 
-// Deployed by Terraform (infra/firebase.tf). Deny everything until an app
-// needs access; open specific paths as apps are added.
+// Deployed by Terraform (infra/firebase.tf). Everything is denied unless a rule below opens it.
+// Server code (Cloud Functions, using the Admin SDK) isn't subject to these rules.
+//
+// Thanksgiving picks (docs/thanksgiving-spec.md):
+//   tgGames/{gameId}                  public; written only by the server
+//   tgGames/{gameId}/picks/{playerId} a player writes only their own, only before kickoff;
+//                                     others' picks are readable (by anyone) only after kickoff
+//   tgPlayers/{playerId}              public names; written only by the sign-in service
+//   tgMeta/{doc}                      public; written only by the server
+//   tgSecrets, tgNames, tgSeasonGames server only (PIN hashes, name index, stats cache)
+// Tests: tests/emulator/rules.test.ts.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+    function game(gameId) {
+      return get(/databases/$(database)/documents/tgGames/$(gameId)).data;
+    }
+
+    function isPlayer(playerId) {
+      return request.auth != null
+        && request.auth.uid == playerId
+        && exists(/databases/$(database)/documents/tgPlayers/$(playerId));
+    }
+
+    function intIn(a, k, lo, hi) {
+      return !(k in a) || (a[k] is int && a[k] >= lo && a[k] <= hi);
+    }
+
+    function oneOf(a, k, options) {
+      return !(k in a) || (a[k] is string && a[k] in options);
+    }
+
+    function isBool(a, k) {
+      return !(k in a) || a[k] is bool;
+    }
+
+    // Same shapes as answerProblems() in src/lib/thanksgiving/questions.ts.
+    function validAnswers(a) {
+      return a is map
+        && a.keys().hasOnly(['finalAway', 'finalHome', 'firstTeam', 'firstScoreType', 'firstTdScorer',
+                             'halftime', 'passTds', 'rushTds', 'missedKick', 'leadChange4q',
+                             'fgs', 'punts', 'tds', 'turnovers', 'longestTd', 'sacks'])
+        && (('finalAway' in a) == ('finalHome' in a))
+        && intIn(a, 'finalAway', 0, 99)
+        && intIn(a, 'finalHome', 0, 99)
+        && (!('finalAway' in a) || a.finalAway != a.finalHome)
+        && oneOf(a, 'firstTeam', ['away', 'home'])
+        && oneOf(a, 'firstScoreType', ['td', 'fg', 'safety'])
+        && (!('firstTdScorer' in a) || (a.firstTdScorer is string && a.firstTdScorer.matches('^([0-9]{1,12}|other|none)$')))
+        && oneOf(a, 'halftime', ['away', 'home', 'tie'])
+        && oneOf(a, 'passTds', ['away', 'home', 'tie'])
+        && oneOf(a, 'rushTds', ['away', 'home', 'tie'])
+        && isBool(a, 'missedKick')
+        && isBool(a, 'leadChange4q')
+        && intIn(a, 'fgs', 0, 20)
+        && intIn(a, 'punts', 0, 30)
+        && intIn(a, 'tds', 0, 20)
+        && intIn(a, 'turnovers', 0, 20)
+        && intIn(a, 'longestTd', 0, 109)
+        && intIn(a, 'sacks', 0, 30);
+    }
+
+    match /tgGames/{gameId} {
+      allow read: if true;
+
+      match /picks/{playerId} {
+        // Your own picks any time; everyone's once the game has kicked off.
+        allow read: if (request.auth != null && request.auth.uid == playerId)
+          || request.time >= game(gameId).kickoff;
+
+        // Only your own, only before kickoff (server time), and only valid answers.
+        allow create, update: if isPlayer(playerId)
+          && request.time < game(gameId).kickoff
+          && request.resource.data.keys().hasOnly(['answers', 'updatedAt'])
+          && request.resource.data.updatedAt == request.time
+          && validAnswers(request.resource.data.answers);
+      }
+    }
+
+    match /tgPlayers/{playerId} {
+      allow read: if true;
+    }
+
+    match /tgMeta/{doc} {
+      allow read: if true;
     }
   }
 }

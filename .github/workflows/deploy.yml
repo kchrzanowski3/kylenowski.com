@@ -1,7 +1,8 @@
 name: deploy
 
-# PRs to main:    build, terraform plan (read-only), Firebase Hosting preview channel.
-# Pushes to main: build, terraform apply, deploy dist/ to the live site.
+# PRs to main:    build, tests, terraform plan (read-only), Firebase Hosting preview channel.
+# Pushes to main: build, tests, terraform apply, deploy dist/ to the live site.
+# Nothing is applied or deployed unless the tests pass.
 on:
   push:
     branches: [main]
@@ -47,7 +48,41 @@ jobs:
           path: dist
           retention-days: 7
 
+  # docs/thanksgiving-spec.md, "Testing". Unit tests, then the Firestore rules, sign-in service and
+  # pre-game refresh against the Firebase emulators, then end-to-end in a browser.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-java@v5 # the Firestore emulator runs on Java
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Emulator tests (rules, sign-in service, pre-game refresh)
+        run: npm run test:emulator
+      - run: npx playwright install --with-deps chromium
+      - name: End-to-end tests
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+
   infra:
+    needs: [test]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -56,6 +91,15 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
       - uses: actions/checkout@v7
+
+      # Terraform zips functions/dist (infra/thanksgiving.tf), so build it before planning.
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Build Cloud Functions bundle
+        working-directory: .
+        run: npm ci && npm run build:functions
 
       - uses: google-github-actions/auth@v3
         with:
@@ -108,6 +152,14 @@ jobs:
         if: env.IS_DEPLOY == 'true'
         run: terraform apply -input=false -lock-timeout=5m tfplan
 
+      # Fill in the games, lines, scorer lists and averages right away instead of waiting for the
+      # next scheduled run (infra/thanksgiving.tf).
+      - name: Run the pre-game refresh once (main only)
+        if: env.IS_DEPLOY == 'true'
+        run: |
+          gcloud scheduler jobs run tg-pregame-daily --location us-central1 --project "$GCP_PROJECT_ID"
+          echo "Started the pre-game refresh (tg-pregame-daily)." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Outputs summary (main only)
         if: env.IS_DEPLOY == 'true'
         run: |
@@ -119,7 +171,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   hosting:
-    needs: [build, infra]
+    needs: [build, test, infra]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7 # for firebase.json

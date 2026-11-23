@@ -10,6 +10,7 @@ Personal site. Everything is code:
 | DNS | Cloudflare, **DNS only** (nothing proxied) | `infra/dns.tf` |
 | GCP resources | Terraform (state in `gs://kylenowski-com-tfstate`) | `infra/` |
 | Pipeline | GitHub Actions | `.github/workflows/deploy.yml` |
+| Thanksgiving picks | Page + React app; Cloud Functions for sign-in and the pre-game refresh. Spec: `docs/thanksgiving-spec.md` | `src/pages/thanksgiving.astro`, `src/components/thanksgiving/`, `src/lib/thanksgiving/`, `functions/`, `infra/thanksgiving.tf` |
 | One-time GCP setup | Already run; safe to re-run | `scripts/bootstrap-gcp.sh` |
 
 ## How changes ship
@@ -46,6 +47,8 @@ gh workflow run inspect-gcp -f kind=gcloud -f args="services list --enabled"
 npm install
 npm run dev            # http://localhost:4321
 npm run build          # type-check + static build to dist/
+npm test               # unit tests, then the emulator tests (needs Java 21)
+npm run test:e2e       # end-to-end in Chromium against the local emulators
 ```
 The CSP that Astro generates only applies to `build` output. Use `npm run build && npm run preview` (or
 `npx firebase-tools emulators:start --only hosting --project demo-kylenowski`) to test with it.

@@ -1,0 +1,277 @@
+{
+ "events": [
+  {
+   "id": "401873081",
+   "date": "2026-11-26T18:00Z",
+   "name": "Chicago Bears at Detroit Lions",
+   "shortName": "CHI @ DET",
+   "competitions": [
+    {
+     "date": "2026-11-26T18:00Z",
+     "status": {
+      "clock": 0.0,
+      "displayClock": "0:00",
+      "period": 0,
+      "type": {
+       "id": "1",
+       "name": "STATUS_SCHEDULED",
+       "state": "pre",
+       "completed": false,
+       "description": "Scheduled",
+       "detail": "Thu, November 26th at 1:00 PM EST",
+       "shortDetail": "11/26 - 1:00 PM EST"
+      },
+      "isTBDFlex": false
+     },
+     "broadcasts": [
+      {
+       "market": "national",
+       "names": [
+        "CBS"
+       ]
+      }
+     ],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "8",
+        "abbreviation": "DET",
+        "displayName": "Detroit Lions",
+        "shortDisplayName": "Lions",
+        "name": "Lions",
+        "color": "0076b6"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "3",
+        "abbreviation": "CHI",
+        "displayName": "Chicago Bears",
+        "shortDisplayName": "Bears",
+        "name": "Bears",
+        "color": "0b1c3a"
+       }
+      }
+     ],
+     "odds": [
+      {
+       "details": "CHI -2.5",
+       "overUnder": 55.5,
+       "spread": 2.5,
+       "awayTeamOdds": {
+        "favorite": true,
+        "underdog": false,
+        "team": {
+         "id": "3",
+         "uid": "s:20~l:28~t:3",
+         "abbreviation": "CHI",
+         "name": "Bears",
+         "displayName": "Chicago Bears",
+         "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/chi.png"
+        },
+        "favoriteAtOpen": false
+       },
+       "homeTeamOdds": {
+        "favorite": false,
+        "underdog": true,
+        "team": {
+         "id": "8",
+         "uid": "s:20~l:28~t:8",
+         "abbreviation": "DET",
+         "name": "Lions",
+         "displayName": "Detroit Lions",
+         "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/det.png"
+        },
+        "favoriteAtOpen": true
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401873080",
+   "date": "2026-11-26T21:30Z",
+   "name": "Philadelphia Eagles at Dallas Cowboys",
+   "shortName": "PHI @ DAL",
+   "competitions": [
+    {
+     "date": "2026-11-26T21:30Z",
+     "status": {
+      "clock": 0.0,
+      "displayClock": "0:00",
+      "period": 0,
+      "type": {
+       "id": "1",
+       "name": "STATUS_SCHEDULED",
+       "state": "pre",
+       "completed": false,
+       "description": "Scheduled",
+       "detail": "Thu, November 26th at 4:30 PM EST",
+       "shortDetail": "11/26 - 4:30 PM EST"
+      },
+      "isTBDFlex": false
+     },
+     "broadcasts": [
+      {
+       "market": "national",
+       "names": [
+        "Fox"
+       ]
+      }
+     ],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "6",
+        "abbreviation": "DAL",
+        "displayName": "Dallas Cowboys",
+        "shortDisplayName": "Cowboys",
+        "name": "Cowboys",
+        "color": "002a5c"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "21",
+        "abbreviation": "PHI",
+        "displayName": "Philadelphia Eagles",
+        "shortDisplayName": "Eagles",
+        "name": "Eagles",
+        "color": "06424d"
+       }
+      }
+     ],
+     "odds": [
+      {
+       "details": "DAL -8.5",
+       "overUnder": 47.5,
+       "spread": -8.5,
+       "awayTeamOdds": {
+        "favorite": false,
+        "underdog": true,
+        "team": {
+         "id": "21",
+         "uid": "s:20~l:28~t:21",
+         "abbreviation": "PHI",
+         "name": "Eagles",
+         "displayName": "Philadelphia Eagles",
+         "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/phi.png"
+        },
+        "favoriteAtOpen": false
+       },
+       "homeTeamOdds": {
+        "favorite": true,
+        "underdog": false,
+        "team": {
+         "id": "6",
+         "uid": "s:20~l:28~t:6",
+         "abbreviation": "DAL",
+         "name": "Cowboys",
+         "displayName": "Dallas Cowboys",
+         "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/dal.png"
+        },
+        "favoriteAtOpen": true
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401873082",
+   "date": "2026-11-27T01:20Z",
+   "name": "Kansas City Chiefs at Buffalo Bills",
+   "shortName": "KC @ BUF",
+   "competitions": [
+    {
+     "date": "2026-11-27T01:20Z",
+     "status": {
+      "clock": 0.0,
+      "displayClock": "0:00",
+      "period": 0,
+      "type": {
+       "id": "1",
+       "name": "STATUS_SCHEDULED",
+       "state": "pre",
+       "completed": false,
+       "description": "Scheduled",
+       "detail": "Thu, November 26th at 8:20 PM EST",
+       "shortDetail": "11/26 - 8:20 PM EST"
+      },
+      "isTBDFlex": false
+     },
+     "broadcasts": [
+      {
+       "market": "national",
+       "names": [
+        "NBC"
+       ]
+      }
+     ],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "2",
+        "abbreviation": "BUF",
+        "displayName": "Buffalo Bills",
+        "shortDisplayName": "Bills",
+        "name": "Bills",
+        "color": "00338d"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "12",
+        "abbreviation": "KC",
+        "displayName": "Kansas City Chiefs",
+        "shortDisplayName": "Chiefs",
+        "name": "Chiefs",
+        "color": "e31837"
+       }
+      }
+     ],
+     "odds": [
+      {
+       "details": "BUF -3",
+       "overUnder": 50.5,
+       "spread": -3.0,
+       "awayTeamOdds": {
+        "favorite": false,
+        "underdog": true,
+        "team": {
+         "id": "12",
+         "uid": "s:20~l:28~t:12",
+         "abbreviation": "KC",
+         "name": "Chiefs",
+         "displayName": "Kansas City Chiefs",
+         "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/kc.png"
+        },
+        "favoriteAtOpen": false
+       },
+       "homeTeamOdds": {
+        "favorite": true,
+        "underdog": false,
+        "team": {
+         "id": "2",
+         "uid": "s:20~l:28~t:2",
+         "abbreviation": "BUF",
+         "name": "Bills",
+         "displayName": "Buffalo Bills",
+         "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/buf.png"
+        },
+        "favoriteAtOpen": true
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

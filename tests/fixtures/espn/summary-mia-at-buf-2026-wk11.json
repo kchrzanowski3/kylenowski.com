@@ -1,0 +1,557 @@
+{
+ "header": {
+  "id": "401873070",
+  "competitions": [
+   {
+    "status": {
+     "type": {
+      "id": "3",
+      "name": "STATUS_FINAL",
+      "state": "post",
+      "completed": true,
+      "description": "Final",
+      "detail": "Final",
+      "shortDetail": "Final"
+     },
+     "period": null
+    },
+    "competitors": [
+     {
+      "homeAway": "home",
+      "score": "26",
+      "team": {
+       "id": "2",
+       "abbreviation": "BUF"
+      }
+     },
+     {
+      "homeAway": "away",
+      "score": "9",
+      "team": {
+       "id": "15",
+       "abbreviation": "MIA"
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "boxscore": {
+  "teams": [
+   {
+    "team": {
+     "id": "15",
+     "abbreviation": "MIA"
+    },
+    "statistics": [
+     {
+      "name": "totalDrives",
+      "displayValue": "10"
+     },
+     {
+      "name": "interceptions",
+      "displayValue": "1"
+     },
+     {
+      "name": "sacksYardsLost",
+      "displayValue": "2-16"
+     },
+     {
+      "name": "turnovers",
+      "displayValue": "1"
+     },
+     {
+      "name": "fumblesLost",
+      "displayValue": "0"
+     },
+     {
+      "name": "interceptions",
+      "displayValue": "1"
+     }
+    ]
+   },
+   {
+    "team": {
+     "id": "2",
+     "abbreviation": "BUF"
+    },
+    "statistics": [
+     {
+      "name": "totalDrives",
+      "displayValue": "11"
+     },
+     {
+      "name": "interceptions",
+      "displayValue": "2"
+     },
+     {
+      "name": "sacksYardsLost",
+      "displayValue": "3-24"
+     },
+     {
+      "name": "turnovers",
+      "displayValue": "2"
+     },
+     {
+      "name": "fumblesLost",
+      "displayValue": "0"
+     },
+     {
+      "name": "interceptions",
+      "displayValue": "2"
+     }
+    ]
+   }
+  ],
+  "players": [
+   {
+    "team": {
+     "id": "15",
+     "abbreviation": "MIA"
+    },
+    "statistics": [
+     {
+      "name": "passing",
+      "keys": [
+       "completions/passingAttempts",
+       "passingYards",
+       "yardsPerPassAttempt",
+       "passingTouchdowns",
+       "interceptions",
+       "sacks-sackYardsLost",
+       "adjQBR",
+       "QBRating"
+      ],
+      "totals": [
+       "12/33",
+       "86",
+       "3.1",
+       "0",
+       "1",
+       "2-16",
+       "--",
+       "32.6"
+      ]
+     },
+     {
+      "name": "rushing",
+      "keys": [
+       "rushingAttempts",
+       "rushingYards",
+       "yardsPerRushAttempt",
+       "rushingTouchdowns",
+       "longRushing"
+      ],
+      "totals": [
+       "20",
+       "99",
+       "5.0",
+       "0",
+       "24"
+      ]
+     },
+     {
+      "name": "defensive",
+      "keys": [
+       "totalTackles",
+       "soloTackles",
+       "sacks",
+       "tacklesForLoss",
+       "passesDefended",
+       "QBHits",
+       "defensiveTouchdowns"
+      ],
+      "totals": [
+       "78",
+       "42",
+       "3",
+       "3",
+       "7",
+       "6",
+       "0"
+      ]
+     },
+     {
+      "name": "kicking",
+      "keys": [
+       "fieldGoalsMade/fieldGoalAttempts",
+       "fieldGoalPct",
+       "longFieldGoalMade",
+       "extraPointsMade/extraPointAttempts",
+       "totalKickingPoints"
+      ],
+      "totals": [
+       "3/3",
+       "100.0",
+       "52",
+       "0/0",
+       "9"
+      ]
+     },
+     {
+      "name": "punting",
+      "keys": [
+       "punts",
+       "puntYards",
+       "grossAvgPuntYards",
+       "touchbacks",
+       "puntsInside20",
+       "longPunt"
+      ],
+      "totals": [
+       "4",
+       "165",
+       "41.3",
+       "1",
+       "1",
+       "50"
+      ]
+     }
+    ]
+   },
+   {
+    "team": {
+     "id": "2",
+     "abbreviation": "BUF"
+    },
+    "statistics": [
+     {
+      "name": "passing",
+      "keys": [
+       "completions/passingAttempts",
+       "passingYards",
+       "yardsPerPassAttempt",
+       "passingTouchdowns",
+       "interceptions",
+       "sacks-sackYardsLost",
+       "adjQBR",
+       "QBRating"
+      ],
+      "totals": [
+       "28/46",
+       "310",
+       "7.3",
+       "1",
+       "2",
+       "3-24",
+       "--",
+       "72.2"
+      ]
+     },
+     {
+      "name": "rushing",
+      "keys": [
+       "rushingAttempts",
+       "rushingYards",
+       "yardsPerRushAttempt",
+       "rushingTouchdowns",
+       "longRushing"
+      ],
+      "totals": [
+       "27",
+       "95",
+       "3.5",
+       "1",
+       "13"
+      ]
+     },
+     {
+      "name": "defensive",
+      "keys": [
+       "totalTackles",
+       "soloTackles",
+       "sacks",
+       "tacklesForLoss",
+       "passesDefended",
+       "QBHits",
+       "defensiveTouchdowns"
+      ],
+      "totals": [
+       "54",
+       "31",
+       "2",
+       "5",
+       "12",
+       "8",
+       "0"
+      ]
+     },
+     {
+      "name": "kicking",
+      "keys": [
+       "fieldGoalsMade/fieldGoalAttempts",
+       "fieldGoalPct",
+       "longFieldGoalMade",
+       "extraPointsMade/extraPointAttempts",
+       "totalKickingPoints"
+      ],
+      "totals": [
+       "4/5",
+       "80.0",
+       "54",
+       "2/2",
+       "14"
+      ]
+     },
+     {
+      "name": "punting",
+      "keys": [
+       "punts",
+       "puntYards",
+       "grossAvgPuntYards",
+       "touchbacks",
+       "puntsInside20",
+       "longPunt"
+      ],
+      "totals": []
+     }
+    ]
+   }
+  ]
+ },
+ "scoringPlays": [
+  {
+   "id": "401873070257",
+   "type": {
+    "id": "59",
+    "text": "Field Goal Good",
+    "abbreviation": "FG"
+   },
+   "scoringType": {
+    "name": "field-goal",
+    "displayName": "Field Goal",
+    "abbreviation": "FG"
+   },
+   "text": "Tyler Bass 43 Yd Field Goal",
+   "awayScore": 0,
+   "homeScore": 3,
+   "period": {
+    "number": 1
+   },
+   "clock": {
+    "value": 664.0,
+    "displayValue": "11:04"
+   },
+   "team": {
+    "id": "2",
+    "abbreviation": "BUF"
+   }
+  },
+  {
+   "id": "401873070646",
+   "type": {
+    "id": "59",
+    "text": "Field Goal Good",
+    "abbreviation": "FG"
+   },
+   "scoringType": {
+    "name": "field-goal",
+    "displayName": "Field Goal",
+    "abbreviation": "FG"
+   },
+   "text": "Tyler Bass 54 Yd Field Goal",
+   "awayScore": 0,
+   "homeScore": 6,
+   "period": {
+    "number": 1
+   },
+   "clock": {
+    "value": 327.0,
+    "displayValue": "5:27"
+   },
+   "team": {
+    "id": "2",
+    "abbreviation": "BUF"
+   }
+  },
+  {
+   "id": "4018730701100",
+   "type": {
+    "id": "67",
+    "text": "Passing Touchdown",
+    "abbreviation": "TD"
+   },
+   "scoringType": {
+    "name": "touchdown",
+    "displayName": "Touchdown",
+    "abbreviation": "TD"
+   },
+   "text": "DJ Moore 4 Yd pass from Josh Allen (Tyler Bass Kick)",
+   "awayScore": 0,
+   "homeScore": 13,
+   "period": {
+    "number": 2
+   },
+   "clock": {
+    "value": 803.0,
+    "displayValue": "13:23"
+   },
+   "team": {
+    "id": "2",
+    "abbreviation": "BUF"
+   }
+  },
+  {
+   "id": "4018730701353",
+   "type": {
+    "id": "59",
+    "text": "Field Goal Good",
+    "abbreviation": "FG"
+   },
+   "scoringType": {
+    "name": "field-goal",
+    "displayName": "Field Goal",
+    "abbreviation": "FG"
+   },
+   "text": "Daniel Carlson 52 Yd Field Goal",
+   "awayScore": 3,
+   "homeScore": 13,
+   "period": {
+    "number": 2
+   },
+   "clock": {
+    "value": 584.0,
+    "displayValue": "9:44"
+   },
+   "team": {
+    "id": "15",
+    "abbreviation": "MIA"
+   }
+  },
+  {
+   "id": "4018730701707",
+   "type": {
+    "id": "68",
+    "text": "Rushing Touchdown",
+    "abbreviation": "TD"
+   },
+   "scoringType": {
+    "name": "touchdown",
+    "displayName": "Touchdown",
+    "abbreviation": "TD"
+   },
+   "text": "James Cook III 1 Yd Rush (Tyler Bass Kick)",
+   "awayScore": 3,
+   "homeScore": 20,
+   "period": {
+    "number": 2
+   },
+   "clock": {
+    "value": 228.0,
+    "displayValue": "3:48"
+   },
+   "team": {
+    "id": "2",
+    "abbreviation": "BUF"
+   }
+  },
+  {
+   "id": "4018730702024",
+   "type": {
+    "id": "59",
+    "text": "Field Goal Good",
+    "abbreviation": "FG"
+   },
+   "scoringType": {
+    "name": "field-goal",
+    "displayName": "Field Goal",
+    "abbreviation": "FG"
+   },
+   "text": "Daniel Carlson 52 Yd Field Goal",
+   "awayScore": 6,
+   "homeScore": 20,
+   "period": {
+    "number": 2
+   },
+   "clock": {
+    "value": 74.0,
+    "displayValue": "1:14"
+   },
+   "team": {
+    "id": "15",
+    "abbreviation": "MIA"
+   }
+  },
+  {
+   "id": "4018730702644",
+   "type": {
+    "id": "59",
+    "text": "Field Goal Good",
+    "abbreviation": "FG"
+   },
+   "scoringType": {
+    "name": "field-goal",
+    "displayName": "Field Goal",
+    "abbreviation": "FG"
+   },
+   "text": "Daniel Carlson 27 Yd Field Goal",
+   "awayScore": 9,
+   "homeScore": 20,
+   "period": {
+    "number": 3
+   },
+   "clock": {
+    "value": 702.0,
+    "displayValue": "11:42"
+   },
+   "team": {
+    "id": "15",
+    "abbreviation": "MIA"
+   }
+  },
+  {
+   "id": "4018730703327",
+   "type": {
+    "id": "59",
+    "text": "Field Goal Good",
+    "abbreviation": "FG"
+   },
+   "scoringType": {
+    "name": "field-goal",
+    "displayName": "Field Goal",
+    "abbreviation": "FG"
+   },
+   "text": "Tyler Bass 40 Yd Field Goal",
+   "awayScore": 9,
+   "homeScore": 23,
+   "period": {
+    "number": 4
+   },
+   "clock": {
+    "value": 896.0,
+    "displayValue": "14:56"
+   },
+   "team": {
+    "id": "2",
+    "abbreviation": "BUF"
+   }
+  },
+  {
+   "id": "4018730704056",
+   "type": {
+    "id": "59",
+    "text": "Field Goal Good",
+    "abbreviation": "FG"
+   },
+   "scoringType": {
+    "name": "field-goal",
+    "displayName": "Field Goal",
+    "abbreviation": "FG"
+   },
+   "text": "Tyler Bass 28 Yd Field Goal",
+   "awayScore": 9,
+   "homeScore": 26,
+   "period": {
+    "number": 4
+   },
+   "clock": {
+    "value": 117.0,
+    "displayValue": "1:57"
+   },
+   "team": {
+    "id": "2",
+    "abbreviation": "BUF"
+   }
+  }
+ ]
+}

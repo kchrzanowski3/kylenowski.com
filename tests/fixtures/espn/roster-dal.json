@@ -1,0 +1,951 @@
+{
+ "athletes": [
+  {
+   "position": "offense",
+   "items": [
+    {
+     "id": "4429202",
+     "displayName": "Israel Abanikanda",
+     "position": {
+      "abbreviation": "RB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4685120",
+     "displayName": "T.J. Bass",
+     "position": {
+      "abbreviation": "G"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4426663",
+     "displayName": "Cooper Beebe",
+     "position": {
+      "abbreviation": "C"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4685263",
+     "displayName": "Tyler Booker",
+     "position": {
+      "abbreviation": "G"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": [
+      {
+       "status": "Out"
+      }
+     ]
+    },
+    {
+     "id": "4808759",
+     "displayName": "Camden Brown",
+     "position": {
+      "abbreviation": "WR"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4372519",
+     "displayName": "Jashaun Corbin",
+     "position": {
+      "abbreviation": "RB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4242355",
+     "displayName": "Jake Ferguson",
+     "position": {
+      "abbreviation": "TE"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": [
+      {
+       "status": "Out"
+      }
+     ]
+    },
+    {
+     "id": "5083754",
+     "displayName": "Ryan Flournoy",
+     "position": {
+      "abbreviation": "WR"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4609048",
+     "displayName": "Tyler Guyton",
+     "position": {
+      "abbreviation": "OT"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4426875",
+     "displayName": "Sam Howell",
+     "position": {
+      "abbreviation": "QB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4685409",
+     "displayName": "Jordan Hudson",
+     "position": {
+      "abbreviation": "WR"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4428990",
+     "displayName": "Broderick Jones",
+     "position": {
+      "abbreviation": "OT"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4241389",
+     "displayName": "CeeDee Lamb",
+     "position": {
+      "abbreviation": "WR"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "3920591",
+     "displayName": "Nick Leverett",
+     "position": {
+      "abbreviation": "G"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4383396",
+     "displayName": "Hunter Luepke",
+     "position": {
+      "abbreviation": "FB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4426485",
+     "displayName": "Jonathan Mingo",
+     "position": {
+      "abbreviation": "WR"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": [
+      {
+       "status": "Out"
+      }
+     ]
+    },
+    {
+     "id": "4361988",
+     "displayName": "James Mitchell",
+     "position": {
+      "abbreviation": "TE"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4426354",
+     "displayName": "George Pickens",
+     "position": {
+      "abbreviation": "WR"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "2577417",
+     "displayName": "Dak Prescott",
+     "position": {
+      "abbreviation": "QB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4372096",
+     "displayName": "Luke Schoonmaker",
+     "position": {
+      "abbreviation": "TE"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4685554",
+     "displayName": "Drew Shelton",
+     "position": {
+      "abbreviation": "OT"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4568652",
+     "displayName": "Tyler Smith",
+     "position": {
+      "abbreviation": "G"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4360967",
+     "displayName": "Brevyn Spann-Ford",
+     "position": {
+      "abbreviation": "TE"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "3915834",
+     "displayName": "Terence Steele",
+     "position": {
+      "abbreviation": "OT"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "3676833",
+     "displayName": "KaVontae Turpin",
+     "position": {
+      "abbreviation": "WR"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4361579",
+     "displayName": "Javonte Williams",
+     "position": {
+      "abbreviation": "RB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    }
+   ]
+  },
+  {
+   "position": "defense",
+   "items": [
+    {
+     "id": "4685266",
+     "displayName": "Jaishawn Barham",
+     "position": {
+      "abbreviation": "LB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": [
+      {
+       "status": "Out"
+      }
+     ]
+    },
+    {
+     "id": "4429249",
+     "displayName": "Justin Barron",
+     "position": {
+      "abbreviation": "LB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4241921",
+     "displayName": "Markquese Bell",
+     "position": {
+      "abbreviation": "S"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "2980097",
+     "displayName": "Jonathan Bullard",
+     "position": {
+      "abbreviation": "DT"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4595352",
+     "displayName": "Alijah Clark",
+     "position": {
+      "abbreviation": "S"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "3122752",
+     "displayName": "Kenny Clark",
+     "position": {
+      "abbreviation": "DT"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4870706",
+     "displayName": "Caleb Downs",
+     "position": {
+      "abbreviation": "S"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4384549",
+     "displayName": "Cobie Durant",
+     "position": {
+      "abbreviation": "CB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4683848",
+     "displayName": "Donovan Ezeiruaku",
+     "position": {
+      "abbreviation": "LB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4039170",
+     "displayName": "Elijah Garcia",
+     "position": {
+      "abbreviation": "DE"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4046523",
+     "displayName": "Rashan Gary",
+     "position": {
+      "abbreviation": "LB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "3121415",
+     "displayName": "Malik Hooker",
+     "position": {
+      "abbreviation": "S"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4240608",
+     "displayName": "James Houston",
+     "position": {
+      "abbreviation": "LB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4685400",
+     "displayName": "Shemar James",
+     "position": {
+      "abbreviation": "LB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4360307",
+     "displayName": "Derion Kendrick",
+     "position": {
+      "abbreviation": "CB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4427816",
+     "displayName": "Marist Liufau",
+     "position": {
+      "abbreviation": "LB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "3929850",
+     "displayName": "P.J. Locke",
+     "position": {
+      "abbreviation": "S"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": [
+      {
+       "status": "Out"
+      }
+     ]
+    },
+    {
+     "id": "13976",
+     "displayName": "Von Miller",
+     "position": {
+      "abbreviation": "LB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4367210",
+     "displayName": "Otito Ogbonnia",
+     "position": {
+      "abbreviation": "DT"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4362088",
+     "displayName": "DeMarvion Overshown",
+     "position": {
+      "abbreviation": "LB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4870960",
+     "displayName": "LT Overton",
+     "position": {
+      "abbreviation": "DT"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4426506",
+     "displayName": "Joey Porter Jr.",
+     "position": {
+      "abbreviation": "CB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "5095865",
+     "displayName": "Shavon Revel Jr.",
+     "position": {
+      "abbreviation": "CB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4044448",
+     "displayName": "Curtis Robinson",
+     "position": {
+      "abbreviation": "LB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4259546",
+     "displayName": "Ameer Speed",
+     "position": {
+      "abbreviation": "CB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4360590",
+     "displayName": "Juanyeh Thomas",
+     "position": {
+      "abbreviation": "S"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4040982",
+     "displayName": "Quinnen Williams",
+     "position": {
+      "abbreviation": "DT"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4428914",
+     "displayName": "Dee Winters",
+     "position": {
+      "abbreviation": "LB"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": [
+      {
+       "status": "Questionable"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "position": "specialTeam",
+   "items": [
+    {
+     "id": "14950",
+     "displayName": "Bryan Anger",
+     "position": {
+      "abbreviation": "P"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "3953687",
+     "displayName": "Brandon Aubrey",
+     "position": {
+      "abbreviation": "PK"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    },
+    {
+     "id": "3052357",
+     "displayName": "Trent Sieg",
+     "position": {
+      "abbreviation": "LS"
+     },
+     "status": {
+      "type": "active"
+     },
+     "injuries": []
+    }
+   ]
+  },
+  {
+   "position": "injuredReserveOrOut",
+   "items": [
+    {
+     "id": "4248911",
+     "displayName": "DaRon Bland",
+     "position": {
+      "abbreviation": "CB"
+     },
+     "status": {
+      "type": "day-to-day"
+     },
+     "injuries": [
+      {
+       "status": "Injured Reserve"
+      }
+     ]
+    },
+    {
+     "id": "4240603",
+     "displayName": "Malik Davis",
+     "position": {
+      "abbreviation": "RB"
+     },
+     "status": {
+      "type": "day-to-day"
+     },
+     "injuries": [
+      {
+       "status": "Injured Reserve"
+      }
+     ]
+    },
+    {
+     "id": "4242442",
+     "displayName": "Princeton Fant",
+     "position": {
+      "abbreviation": "TE"
+     },
+     "status": {
+      "type": "day-to-day"
+     },
+     "injuries": [
+      {
+       "status": "Injured Reserve"
+      }
+     ]
+    },
+    {
+     "id": "4431547",
+     "displayName": "Kelvin Gilliam Jr.",
+     "position": {
+      "abbreviation": "DT"
+     },
+     "status": {
+      "type": "day-to-day"
+     },
+     "injuries": [
+      {
+       "status": "Injured Reserve"
+      }
+     ]
+    },
+    {
+     "id": "4429676",
+     "displayName": "Tyler Goodson",
+     "position": {
+      "abbreviation": "RB"
+     },
+     "status": {
+      "type": "day-to-day"
+     },
+     "injuries": [
+      {
+       "status": "Injured Reserve"
+      }
+     ]
+    },
+    {
+     "id": "4044138",
+     "displayName": "Matt Hennessy",
+     "position": {
+      "abbreviation": "C"
+     },
+     "status": {
+      "type": "day-to-day"
+     },
+     "injuries": [
+      {
+       "status": "Injured Reserve"
+      }
+     ]
+    },
+    {
+     "id": "4710067",
+     "displayName": "Malachi Lawrence",
+     "position": {
+      "abbreviation": "LB"
+     },
+     "status": {
+      "type": "day-to-day"
+     },
+     "injuries": [
+      {
+       "status": "Injured Reserve"
+      }
+     ]
+    },
+    {
+     "id": "4702577",
+     "displayName": "Devin Moore",
+     "position": {
+      "abbreviation": "CB"
+     },
+     "status": {
+      "type": "day-to-day"
+     },
+     "injuries": [
+      {
+       "status": "Injured Reserve"
+      }
+     ]
+    },
+    {
+     "id": "4043089",
+     "displayName": "Jalen Thompson",
+     "position": {
+      "abbreviation": "S"
+     },
+     "status": {
+      "type": "day-to-day"
+     },
+     "injuries": [
+      {
+       "status": "Injured Reserve"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "position": "suspended",
+   "items": []
+  },
+  {
+   "position": "practiceSquad",
+   "items": [
+    {
+     "id": "4689364",
+     "displayName": "Tommy Dunn Jr.",
+     "position": {
+      "abbreviation": "DT"
+     },
+     "status": {
+      "type": "practice-squad"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4367330",
+     "displayName": "Tyrek Funderburk",
+     "position": {
+      "abbreviation": "CB"
+     },
+     "status": {
+      "type": "practice-squad"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4363547",
+     "displayName": "Marcellus Johnson",
+     "position": {
+      "abbreviation": "OT"
+     },
+     "status": {
+      "type": "practice-squad"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4383405",
+     "displayName": "Jake Kubas",
+     "position": {
+      "abbreviation": "G"
+     },
+     "status": {
+      "type": "practice-squad"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4574551",
+     "displayName": "Isaiah Land",
+     "position": {
+      "abbreviation": "LB"
+     },
+     "status": {
+      "type": "practice-squad"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4599739",
+     "displayName": "Kendre Miller",
+     "position": {
+      "abbreviation": "RB"
+     },
+     "status": {
+      "type": "practice-squad"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4570577",
+     "displayName": "Wanya Morris",
+     "position": {
+      "abbreviation": "OT"
+     },
+     "status": {
+      "type": "practice-squad"
+     },
+     "injuries": []
+    },
+    {
+     "id": "5066095",
+     "displayName": "Adedayo Odeleye",
+     "position": {
+      "abbreviation": "DT"
+     },
+     "status": {
+      "type": "practice-squad"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4685110",
+     "displayName": "Anthony Smith",
+     "position": {
+      "abbreviation": "WR"
+     },
+     "status": {
+      "type": "practice-squad"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4034946",
+     "displayName": "Kyle Trask",
+     "position": {
+      "abbreviation": "QB"
+     },
+     "status": {
+      "type": "practice-squad"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4428713",
+     "displayName": "Bralen Trice",
+     "position": {
+      "abbreviation": "LB"
+     },
+     "status": {
+      "type": "practice-squad"
+     },
+     "injuries": []
+    },
+    {
+     "id": "4594749",
+     "displayName": "Michael Trigg",
+     "position": {
+      "abbreviation": "TE"
+     },
+     "status": {
+      "type": "practice-squad"
+     },
+     "injuries": []
+    }
+   ]
+  }
+ ]
+}

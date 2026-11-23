@@ -14,6 +14,9 @@
 }
 
 .tg { display: grid; gap: 1.25rem; margin-top: 1.5rem; }
+/* Grid items default to min-width: auto, which lets a wide table stretch the page sideways on a
+   phone. With 0, wide tables scroll inside their own box instead. */
+.tg > * { min-width: 0; }
 .tg button { font: inherit; }
 .tg-small { font-size: 0.875rem; }
 .tg-error { color: var(--tg-bad); }
@@ -207,3 +210,5 @@
 .tg-log code { font-size: 0.8rem; word-break: break-all; }
 .tg-scorer-editor { margin-top: 0.75rem; }
 .tg-scorer-editor ul { padding-left: 1.2rem; }
+/* On the admin screen the stat name column scrolls with the table, so it never covers the Set buttons. */
+.tg-admin .tg-reveal tbody th { position: static; }

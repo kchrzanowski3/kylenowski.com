@@ -22,6 +22,17 @@ variable "github_repo_id" {
   default     = "1466849242"
 }
 
+variable "admin_email" {
+  description = "The Thanksgiving picks admin's email address (GitHub secret TG_ADMIN_EMAIL, passed as TF_VAR_admin_email). Kept out of this public repo."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.admin_email))
+    error_message = "admin_email must be an email address. Set the TG_ADMIN_EMAIL repository secret."
+  }
+}
+
 variable "enable_dnssec" {
   description = "Turn on DNSSEC. With Cloudflare Registrar the DS record is added at the registry automatically."
   type        = bool

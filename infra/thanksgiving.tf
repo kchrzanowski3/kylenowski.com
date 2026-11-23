@@ -1,12 +1,16 @@
 # ---------------------------------------------------------------------------
-# Thanksgiving picks (docs/thanksgiving-spec.md), PR 1: sign-in and the pre-game refresh.
+# Thanksgiving picks (docs/thanksgiving-spec.md).
 #
 #   tg-auth     public Cloud Function (2nd gen): join / log in / set PIN, returns
 #               Firebase custom tokens. https://us-central1-kylenowski-com.cloudfunctions.net/tg-auth
-#   tg-refresh  private Cloud Function, called by Cloud Scheduler: betting line,
-#               lock times, first-TD-scorer lists, reference averages.
+#   tg-refresh  private, called by Cloud Scheduler: betting line, lock times,
+#               first-TD-scorer lists, reference averages.
+#   tg-live     private, called by Cloud Scheduler every minute on game day: the
+#               live worker (polls ESPN, scores, publishes after the spoiler delay).
+#   tg-admin    public, but only the admin's verified email gets in: overrides,
+#               spoiler delay, players, first-TD lists, kickoff times.
 #
-# Both are built by Cloud Build from functions/dist, which CI produces with
+# All are built by Cloud Build from functions/dist, which CI produces with
 # `npm run build:functions` before `terraform plan`.
 # ---------------------------------------------------------------------------
 
@@ -27,9 +31,18 @@ resource "google_project_service" "thanksgiving" {
 
 # --- Firebase Auth ----------------------------------------------------------
 # Players sign in with custom tokens from tg-auth, which needs no sign-in
-# provider turned on. The admin's emailed-link sign-in comes in PR 2.
+# provider. The admin signs in with an emailed link (passwordless email). tg-admin
+# creates the admin's account up front, so nobody can register that address with
+# a password of their own first.
 resource "google_identity_platform_config" "auth" {
   project = var.project_id
+
+  sign_in {
+    email {
+      enabled           = true
+      password_required = false
+    }
+  }
 
   authorized_domains = [
     var.domain,
@@ -67,6 +80,16 @@ resource "google_service_account" "tg_refresh" {
   display_name = "Thanksgiving: pre-game refresh function"
 }
 
+resource "google_service_account" "tg_live" {
+  account_id   = "tg-live"
+  display_name = "Thanksgiving: live worker function"
+}
+
+resource "google_service_account" "tg_admin" {
+  account_id   = "tg-admin"
+  display_name = "Thanksgiving: admin function"
+}
+
 resource "google_service_account" "tg_scheduler" {
   account_id   = "tg-scheduler"
   display_name = "Thanksgiving: Cloud Scheduler caller"
@@ -87,11 +110,20 @@ resource "google_project_iam_member" "tg_firestore" {
   for_each = {
     auth    = google_service_account.tg_auth.member
     refresh = google_service_account.tg_refresh.member
+    live    = google_service_account.tg_live.member
+    admin   = google_service_account.tg_admin.member
   }
 
   project = var.project_id
   role    = "roles/datastore.user"
   member  = each.value
+}
+
+# tg-admin creates the admin's account and signs out removed players.
+resource "google_project_iam_member" "tg_admin_auth" {
+  project = var.project_id
+  role    = "roles/firebaseauth.admin"
+  member  = google_service_account.tg_admin.member
 }
 
 # tg-auth signs custom tokens as itself.
@@ -157,6 +189,22 @@ locals {
       timeout     = 540
       max         = 1
     }
+    live = {
+      name        = "tg-live"
+      entry_point = "tgLive"
+      sa          = google_service_account.tg_live.email
+      memory      = "512Mi"
+      timeout     = 90 # each call works for ~50s; a lease keeps calls from overlapping
+      max         = 2
+    }
+    admin = {
+      name        = "tg-admin"
+      entry_point = "tgAdmin"
+      sa          = google_service_account.tg_admin.email
+      memory      = "256Mi"
+      timeout     = 60
+      max         = 2
+    }
   }
 }
 
@@ -187,6 +235,8 @@ resource "google_cloudfunctions2_function" "tg" {
     service_account_email          = each.value.sa
     ingress_settings               = "ALLOW_ALL"
     all_traffic_on_latest_revision = true
+    # The admin's address is set here, not in local.tg_functions: for_each can't take sensitive values.
+    environment_variables = each.key == "admin" ? { TG_ADMIN_EMAIL = lower(var.admin_email) } : {}
   }
 
   depends_on = [
@@ -196,12 +246,27 @@ resource "google_cloudfunctions2_function" "tg" {
   ]
 }
 
-# The sign-in function is called straight from browsers.
+# The sign-in and admin functions are called straight from browsers (tg-admin
+# checks the admin's ID token itself).
 resource "google_cloud_run_v2_service_iam_member" "tg_auth_public" {
   location = var.region
   name     = google_cloudfunctions2_function.tg["auth"].name
   role     = "roles/run.invoker"
   member   = "allUsers"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "tg_admin_public" {
+  location = var.region
+  name     = google_cloudfunctions2_function.tg["admin"].name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "tg_live_scheduler" {
+  location = var.region
+  name     = google_cloudfunctions2_function.tg["live"].name
+  role     = "roles/run.invoker"
+  member   = google_service_account.tg_scheduler.member
 }
 
 # The refresh function is called only by Cloud Scheduler.
@@ -249,3 +314,32 @@ resource "google_cloud_scheduler_job" "tg_refresh" {
 
   depends_on = [google_project_service.thanksgiving, google_cloud_run_v2_service_iam_member.tg_refresh_scheduler]
 }
+
+# --- Live worker schedule (spec, "Live updates") ------------------------------
+# Every minute from 12:00 PM to 11:59 PM ET on Thursday, Nov 26. Each call polls
+# about every 15 seconds for just under a minute, so a call that fails is simply
+# followed by the next one: no watchdog needed.
+resource "google_cloud_scheduler_job" "tg_live" {
+  name             = "tg-live-game-day"
+  region           = var.region
+  schedule         = "* 12-23 26 11 *"
+  time_zone        = "America/New_York"
+  attempt_deadline = "120s"
+
+  retry_config {
+    retry_count = 0 # the next minute's call is the retry
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tg["live"].service_config[0].uri
+
+    oidc_token {
+      service_account_email = google_service_account.tg_scheduler.email
+      audience              = google_cloudfunctions2_function.tg["live"].service_config[0].uri
+    }
+  }
+
+  depends_on = [google_project_service.thanksgiving, google_cloud_run_v2_service_iam_member.tg_live_scheduler]
+}
+

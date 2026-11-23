@@ -90,6 +90,8 @@ jobs:
         working-directory: infra
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      # The Thanksgiving admin's email address: a sensitive Terraform variable, so it's hidden in plans.
+      TF_VAR_admin_email: ${{ secrets.TG_ADMIN_EMAIL }}
     steps:
       - uses: actions/checkout@v7
 

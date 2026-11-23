@@ -22,7 +22,11 @@ Personal site. Everything is code:
      built HTML differs from the live site, and in the run's Summary tab. A preview uses
      the live backend (Firestore, functions), so a change that adds backend pieces only fully works on its
      preview once it's merged.
-2. Merge. CI applies the plan as `ci-deployer` and deploys `dist/` to the live site.
+2. Merge. CI applies the plan as `ci-deployer` and deploys `dist/` to the live site. Then read-only smoke
+   tests (`npm run test:smoke`, `tests/smoke/`) check the live site: pages load without console errors, the
+   app reaches Firestore, and the sign-in function answers. They never sign in or save anything.
+3. Check it worked: the merged PR gets a comment from CI, ✅ deployed and smoke-tested or ❌ with the step that
+   failed. The repo's **Deployments** panel (right-hand sidebar) shows the current `production` deploy.
 
 Nothing in GCP or Cloudflare should be changed by hand.
 

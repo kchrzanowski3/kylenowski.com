@@ -2,7 +2,8 @@ name: deploy
 
 # PRs to main:    build, tests, terraform plan (read-only), Firebase Hosting preview channel.
 # Pushes to main: build, tests, terraform apply, deploy dist/ to the live site.
-# Nothing is applied or deployed unless the tests pass.
+# Nothing is applied or deployed unless the tests pass. After a production deploy, read-only smoke
+# tests check the live site, and the merged PR gets a comment saying whether it all worked.
 on:
   push:
     branches: [main]
@@ -173,6 +174,10 @@ jobs:
   hosting:
     needs: [build, test, infra]
     runs-on: ubuntu-latest
+    # Shows in the repo's Deployments panel and on the PR: "preview" for PRs, "production" for main.
+    environment:
+      name: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
+      url: ${{ steps.preview.outputs.url || 'https://kylenowski.com' }}
     permissions:
       contents: read
       id-token: write # GCP login (Workload Identity Federation)
@@ -227,3 +232,62 @@ jobs:
           BODY="$(gh api "repos/$REPO/pulls/$PR" --jq '.body // ""')" node scripts/pr-preview-body.mjs > body.md
           gh api -X PATCH "repos/$REPO/pulls/$PR" -F body=@body.md > /dev/null
           { echo '### PR description links'; sed -n '2,3p' body.md; } >> "$GITHUB_STEP_SUMMARY"
+
+  # Read-only checks against the live site after a production deploy (tests/smoke): the pages load
+  # without console errors, the app reaches Firestore, and the sign-in service answers.
+  smoke:
+    needs: [hosting]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Smoke tests against https://kylenowski.com
+        run: npm run test:smoke
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report-smoke
+          path: playwright-report-smoke
+          retention-days: 7
+
+  # Tells the merged PR whether the deploy worked, so a failure after merging isn't missed.
+  report:
+    needs: [build, test, infra, hosting, smoke]
+    if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Comment on the merged PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+          TEST: ${{ needs.test.result }}
+          BUILD: ${{ needs.build.result }}
+          INFRA: ${{ needs.infra.result }}
+          HOSTING: ${{ needs.hosting.result }}
+          SMOKE: ${{ needs.smoke.result }}
+        run: |
+          icon() { case "$1" in success) echo "✅";; skipped) echo "⏭️";; cancelled) echo "⚪";; *) echo "❌";; esac; }
+          if [ "$TEST$BUILD$INFRA$HOSTING$SMOKE" = "successsuccesssuccesssuccesssuccess" ]; then
+            head="✅ **Deployed to [kylenowski.com](https://kylenowski.com)** (${SHA::7}), and the live smoke tests passed."
+          else
+            head="❌ **Deploy of ${SHA::7} did not finish.** The live site may still be on the previous version. [See the run]($RUN_URL)."
+          fi
+          body="$(printf '%s\n\n| Step | Result |\n|---|---|\n| Tests | %s %s |\n| Build | %s %s |\n| Infra (Terraform apply) | %s %s |\n| Live site upload | %s %s |\n| Smoke tests on the live site | %s %s |\n\n[Run](%s)' \
+            "$head" "$(icon "$TEST")" "$TEST" "$(icon "$BUILD")" "$BUILD" "$(icon "$INFRA")" "$INFRA" \
+            "$(icon "$HOSTING")" "$HOSTING" "$(icon "$SMOKE")" "$SMOKE" "$RUN_URL")"
+          echo "$body" >> "$GITHUB_STEP_SUMMARY"
+          for pr in $(gh api "repos/$REPO/commits/$SHA/pulls" --jq '.[].number'); do
+            gh api "repos/$REPO/issues/$pr/comments" -f body="$body" > /dev/null
+            echo "Commented on #$pr"
+          done

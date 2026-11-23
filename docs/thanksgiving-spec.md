@@ -16,6 +16,9 @@ Thursday, Nov 26, 2026:
 | 2 | Philadelphia Eagles @ Dallas Cowboys | 4:30 PM | FOX |
 | 3 | Kansas City Chiefs @ Buffalo Bills | 8:20 PM | NBC |
 
+Only the Thursday games count. The Wednesday (Packers @ Rams) and Friday (Broncos @ Steelers) games are not
+part of the contest.
+
 Games, teams and kickoff times come from the live data feed, not from this table, so a schedule change is picked
 up automatically.
 
@@ -125,7 +128,7 @@ Plus each player's points for that game, and that game's winner once it's over.
 - During a game, standings count **projected points**: each category is scored as if the game ended right
   now. Projected points look different from final ones, and a category becomes final as soon as its answer
   can't change any more (see the Status column).
-- Updates aim to reach phones **within about a minute** of a play.
+- Updates reach phones about **15–45 seconds after the ESPN feed** (see "Live updates" below).
 
 ## Admin (only Kyle)
 
@@ -154,9 +157,7 @@ Plus each player's points for that game, and that game's winner once it's over.
   no refresh.
 - **Sign-in:** Firebase Auth. Players get an anonymous session linked to their name; the admin signs in with
   Google.
-- **Live updates:** a Cloud Run job, started by Cloud Scheduler every minute during game windows, reads the ESPN
-  feed, works out the stats, scores every player, and writes the results to Firestore. All scoring happens on
-  the server, not on phones.
+- **Live updates:** see "Live updates" below. All scoring happens on the server, not on phones.
 - **Firestore rules:**
   - Players can only write their own picks, and only before that game's kickoff.
   - Other players' picks can only be read after kickoff.
@@ -164,7 +165,29 @@ Plus each player's points for that game, and that game's winner once it's over.
 - **All of it is managed by Terraform** in `infra/` and goes through the usual PR workflow.
 - **CSP:** the page's Content-Security-Policy has to allow the Firebase/Firestore hosts the app talks to.
 
+## Live updates
+
+ESPN's feed has no push or webhooks, and paid sports-data push feeds are enterprise-priced, so the server
+polls. The path from the database to phones is push.
+
+```
+ESPN feed --poll ~15s--> Cloud Run worker --write only on change--> Firestore ==push==> phones
+```
+
+- **Worker:**
+  - Cloud Scheduler starts a Cloud Run job about 15 minutes before the first kickoff.
+  - It loops: poll the ESPN scoreboard and the summaries of in-progress games every ~15 seconds, recompute the
+    stats and scores, and write to Firestore **only when something changed**.
+  - It exits once all 3 games are final.
+- **Watchdog:** a second schedule, every 5 minutes during the game window, restarts the worker if it isn't
+  running. The admin screen shows "last update N seconds ago".
+- **Phones:** listen to Firestore, so changes appear within about a second of being written, with no refresh.
+- **Overall delay:** about 15–45 seconds behind the ESPN feed, which itself runs slightly behind the live
+  broadcast.
+- **Cost:** about 8 hours of one small container on game day, within the free tier.
+
 ## Open questions
 
-1. **Wednesday and Friday games:** the 2026 slate also has Packers @ Rams (Wed, Nov 25, 8:00 PM ET) and Broncos
-   @ Steelers (Fri, Nov 27, 3:00 PM ET). Should either be included, or just the three Thursday games?
+1. **Spoiler delay:** people streaming are often 30–60+ seconds behind cable, so the leaderboard could show a
+   play before their TV does. Options: no delay; a fixed ~60-second delay; or a delay adjustable from the admin
+   screen. Proposed: adjustable, starting at 0.

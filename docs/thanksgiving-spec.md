@@ -219,6 +219,41 @@ ESPN feed --poll ~15s--> Cloud Run worker --write only on change--> Firestore ==
   broadcast.
 - **Cost:** about 8 hours of one small container on game day, within the free tier.
 
+## Testing
+
+Tests are written alongside the code and run in CI on every PR (a `test` job next to `build`, `infra` and
+`hosting`). A PR doesn't merge unless they pass.
+
+1. **Scoring rules (Vitest).** Scoring is a pure function: game data + picks → points. **Every rule in this spec
+   has at least one test**, including the edge cases:
+   - equal-distance ties for "closest" (everyone tied gets full points)
+   - final score: closest distance, the correct-winner point, the ≤ 15 window (exactly 15 counts, 16 doesn't),
+     and a tie game (nobody gets the winner point)
+   - first score made by safety (5 points) vs TD/FG (1)
+   - "No TD" and longest TD = 0 in a game without a touchdown
+   - overtime counted in stats, but not for the 4th-quarter lead change
+   - a lead change from tied to ahead counts; one team extending its lead doesn't
+   - missed kicks include blocked kicks but not failed 2-point tries
+   - turnovers exclude turnovers on downs
+   - projected (live) vs final status for each category
+   - the overall tiebreaker (closest game 3 total points)
+   - the Vegas projection formula
+2. **Recorded real games.** ESPN data from several completed 2026 games is saved as test fixtures (ideally
+   including an overtime game and a game with a safety). Tests check that every derived stat matches the official
+   box score. They run offline, so a feed change can't break them, and they guard against misreading the feed.
+3. **Firestore security rules**, tested in the Firebase emulator:
+   - players can write only their own picks, and only before kickoff
+   - other players' picks can't be read before kickoff, including from the admin screen
+   - only the admin can write overrides or change the spoiler delay
+   - PIN-protected names can't be taken over without the PIN
+4. **End-to-end (Playwright, against the emulators):** join → make picks → kickoff locks picks → picks are
+   revealed → a simulated scoring update moves the leaderboard.
+5. **Before Thursday:** run the full worker against a recorded game replayed at speed, and check the standings
+   it produces against a hand-worked result.
+
+Before merging, PRs also get the built-in `/code-review`, plus `/security-review` for anything touching
+sign-in or Firestore rules.
+
 ## Launch and afterwards
 
 - **Picks open** as soon as the page goes live (target: Wednesday, Nov 25), and stay open for each game until

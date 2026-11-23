@@ -226,7 +226,7 @@ jobs:
             | awk 'NF { started = 1 } started')"
           block="$(printf '%s\n' \
             '<!-- preview-link:start -->' \
-            "**Preview:** $URL (built from ${SHA::7}; expires 7 days after the last push)" \
+            "**Preview:** [${URL#https://}]($URL) (built from ${SHA::7}; expires 7 days after the last push)" \
             '<!-- preview-link:end -->')"
           gh api -X PATCH "repos/$REPO/pulls/$PR" -f body="$(printf '%s\n\n%s\n' "$block" "$rest")" > /dev/null
           echo "Preview link is at the top of the PR description." >> "$GITHUB_STEP_SUMMARY"

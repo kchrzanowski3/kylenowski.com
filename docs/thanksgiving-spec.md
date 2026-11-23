@@ -24,11 +24,18 @@ up automatically.
 
 ## Players
 
-- **Joining:** type a name, and optionally set a **4-digit PIN**.
-- **Logging in on any device:** pick your name from the list of players. If that name has a PIN, enter it.
+- **Joining:** type a name, and optionally set a **4-digit PIN**. Names are unique, ignoring case ("kyle" and
+  "Kyle" can't both join). Joining closes at game 3's kickoff, since there's nothing left to pick.
+- **Logging in on any device:** pick your name from the list of players. If that name has a PIN, enter it. The
+  PIN is checked by the sign-in service (see "How it's built"), which limits wrong guesses so a PIN can't be
+  found by trying all 10,000.
+- **Adding a PIN later:** a signed-in player can add or change their own PIN at any time.
 - Low-stakes on purpose: easy sign-in matters more than strong security. Names without a PIN can be picked by
   anyone.
-- The admin can rename players, remove players and reset PINs.
+- The admin can rename players, remove players and reset PINs. Removing a player deletes their picks and
+  points.
+- **No account needed to watch:** anyone with the link can see the standings, and everyone's picks for a game
+  once it has kicked off.
 
 ## Questions (the same 15 for every game)
 
@@ -37,7 +44,7 @@ up automatically.
 | 1 | **Final score** | away score, home score (can't be a tie) | **3** closest · **+1** correct winner · **+1** within 15 |
 | 2 | **Which team scores first?** | team | 1 |
 | 3 | **How is the first score made?** | TD / FG / safety | 1 for TD or FG · **5 for safety** |
-| 4 | **First TD scorer** | player from a list, "Other player", or "No TD" | 3 |
+| 4 | **First TD scorer** | player from the list, "Other player", or "No TD" | 3 |
 | 5 | **Who's leading at halftime?** | team / tied | 1 |
 | 6 | **Which team has more passing TDs?** | team / tie | 1 |
 | 7 | **Which team has more rushing TDs?** | team / tie | 1 |
@@ -63,6 +70,8 @@ The most anyone can score in one game is **37**, if they pick a safety correctly
   - *Correct winner*: +1 to everyone whose guess has the winning team ahead. If the game ends in a tie, nobody
     gets this point.
   - *Within 15*: +1 to everyone whose distance is ≤ 15.
+- **The official box score decides** what each stat counts (for example blocked punts, aborted kicks, or plays
+  wiped out by a penalty). The derived stats are tested against official box scores (see "Testing").
 - **Overtime counts** toward every stat (score, TDs, punts, sacks and so on).
 - **Total touchdowns** includes defensive and special-teams TDs.
 - **Turnovers** are interceptions plus lost fumbles. Turnovers on downs don't count.
@@ -70,16 +79,30 @@ The most anyone can score in one game is **37**, if they pick a safety correctly
 - **Lead change in the 4th quarter:** **yes** if, at any point in the 4th quarter, a team goes ahead when it was
   tied or behind just before that play. Going from tied to ahead counts. Overtime doesn't count, since it isn't
   the 4th quarter.
-- **First TD scorer:** the list has each team's QBs, RBs, WRs and TEs from the current roster. Players ruled
-  out or listed inactive drop off the list when the feed reports it. A pick already made on such a player
-  stays, but won't score. "Other player" covers anyone else,
-  including defensive, special-teams and lineman TDs. "No TD" wins only if the game has no touchdown.
+- **First TD scorer:** the list has the players most likely to score, for each team, from ESPN's depth chart:
+  - the top 2 QBs
+  - the top 2 RBs
+  - the starting WRs (the 3 WR slots)
+  - the starting TE
+
+  Players ruled out or listed inactive drop off the list when the feed reports it. A pick already made on such
+  a player stays, but won't score. A listed player who scores **any** kind of TD (receiving, rushing, or a
+  kick, punt or fumble return) counts as that player. **"Other player"** covers everyone not on the list:
+  backups, defensive players, special-teams players and linemen. "No TD" wins only if the game has no
+  touchdown.
+- **Longest TD** counts every kind of TD, including defensive and return TDs.
+- **No score in the game (0–0):** nobody gets the points for "which team scores first" or "how is the first
+  score made".
 - **No touchdown in the game:** longest TD = 0, and the first-TD-scorer answer is "No TD".
 
 ### Locking and reveal
 
 - Picks for a game can be made and edited until **that game's kickoff**, then they lock. Each game locks
   separately, so someone who shows up late can still play the night game.
+- The lock time is the **scheduled kickoff** stored in Firestore (from the feed, or as adjusted by the admin),
+  checked against the server's clock. It doesn't wait for ESPN to show the game as started.
+- **A lock never reopens.** Once a game's lock time has passed, moving its kickoff later (by the feed or by the
+  admin) doesn't reopen picks, since everyone's picks have already been revealed.
 - Other players' picks are **hidden until kickoff**, then shown to everyone side by side.
 - A player who skips a question gets 0 for it. A player who skips a whole game can still win overall.
 
@@ -90,7 +113,17 @@ The most anyone can score in one game is **37**, if they pick a safety correctly
   For example, DAL −3.5 with O/U 47.5 projects DAL 25.5 – PHI 22. It uses the line from the data feed,
   refreshes on the pre-game schedule (see "Pre-game refresh"), and freezes at kickoff.
 - **Reference averages** next to every number question (field goals, punts, TDs, turnovers, longest TD, sacks,
-  and points for the final score): the NFL per-game average **and each team's per-game average this season**.
+  and points for the final score): **each team's own per-game average this season**, plus the NFL average per
+  team per game. The questions ask for both teams combined, but these are each team's own numbers, so they're
+  labeled that way, for example "DAL: 4.1 punts per game (DAL's own)". For each team:
+  - points: points it scored
+  - field goals: field goals it made
+  - punts: its punts
+  - TDs: TDs it scored, of every kind
+  - turnovers: turnovers it committed (interceptions thrown plus fumbles lost)
+  - sacks: sacks made by its defense
+  - longest TD: its longest TD in each game, averaged (a game where it scored no TD counts as 0)
+
   These are calculated from real 2026 game data shortly before Thanksgiving, not entered by hand.
 
 ## Standings
@@ -98,7 +131,8 @@ The most anyone can score in one game is **37**, if they pick a safety correctly
 ### Overall (default view)
 - One **running total across all 3 games**.
 - **Tiebreaker for the overall champion:** whoever's game 3 final-score guess (away + home) is closest to that
-  game's actual total points. No extra question needed.
+  game's actual total points. No extra question needed. If that's still tied (equally close, or the tied
+  players didn't pick game 3's final score), they're **co-champions**.
 - Expand a player to see their points per game.
 
 ### Per-game scoreboard
@@ -124,7 +158,8 @@ One view per game, with a row for **each way to score points**:
 | Longest TD yards | 3 | names | live / final |
 | Combined sacks | 3 | names | live / final |
 
-Plus each player's points for that game, and that game's winner once it's over.
+Plus each player's points for that game, and that game's winner once it's over: the most points in that
+game, with ties as **co-winners** (no tiebreaker).
 
 ### Live scoring
 - During a game, standings count **projected points**: each category is scored as if the game ended right
@@ -145,7 +180,8 @@ Plus each player's points for that game, and that game's winner once it's over.
 - **No peeking:** before a game kicks off, the admin screen **can't show other players' picks** for that game,
   the same as every other player's view. After kickoff it shows everything.
 - **Players:** rename, remove, or reset a PIN.
-- **Adjust a kickoff/lock time** if the schedule changes.
+- **Adjust a kickoff/lock time** if the schedule changes. A lock time that has already passed can't be moved
+  later (see "Locking and reveal").
 - Every admin change is logged with a timestamp.
 
 ## Data
@@ -153,7 +189,7 @@ Plus each player's points for that game, and that game's winner once it's over.
 - **Live data:** ESPN's public scoreboard and game-summary feeds (free, no key). They provide the schedule,
   live score, quarter-by-quarter scores, scoring plays (first score, first TD scorer, longest TD, 4th-quarter
   lead changes), team stats (TDs, turnovers, sacks, field goals), kicking (missed kicks), drive results
-  (punts), rosters, and the betting line.
+  (punts), rosters, depth charts, injuries and inactives, and the betting line.
   - These feeds are **unofficial** and could change, so the admin override is the backup.
   - **Before the games:** check every derived stat against a completed 2026 game's box score.
 
@@ -162,13 +198,24 @@ Plus each player's points for that game, and that game's winner once it's over.
 - **Page:** `/thanksgiving` is a static Astro page with a React app inside it, served by Firebase Hosting.
 - **Data:** Firestore. Phones subscribe to the game and standings data, so the leaderboard updates live with
   no refresh.
-- **Sign-in:** Firebase Auth. Players get an anonymous session linked to their name; the admin signs in with
-  Google.
+- **Sign-in:** Firebase Auth.
+  - **Players:** a small **sign-in service** on Cloud Run handles joining and logging in. It checks the name
+    and PIN (PINs are stored hashed and never readable by phones), limits wrong PIN guesses, and returns a
+    Firebase sign-in token for that player. This is what lets the same player sign in on a second device.
+  - **Admin:** signs in with Google. Kyle's account ID is kept in a GitHub secret, passed to Terraform as a
+    sensitive variable and inserted into the Firestore rules when they're deployed, so it's never committed
+    or shown in a PR's plan output.
+  - Google sign-in needs an OAuth client, which can't be created with Terraform. That's a one-time setup step
+    outside Terraform; its client ID and secret are stored as GitHub secrets.
+- **Re-scoring after an admin fix:** saving an override calls the same Cloud Run service, which runs scoring
+  once.
 - **Live updates:** see "Live updates" below. All scoring happens on the server, not on phones.
 - **Firestore rules:**
   - Players can only write their own picks, and only before that game's kickoff.
   - Other players' picks can only be read after kickoff.
-  - Only the admin can write overrides.
+  - Only the admin can write overrides or change the spoiler delay.
+  - PINs and the player-to-account link are written only by the sign-in service.
+  - Standings, the player list and (after kickoff) picks can be read without signing in.
 - **All of it is managed by Terraform** in `infra/` and goes through the usual PR workflow.
 - **CSP:** the page's Content-Security-Policy has to allow the Firebase/Firestore hosts the app talks to.
 
@@ -217,7 +264,8 @@ ESPN feed --poll ~15s--> Cloud Run worker --write only on change--> Firestore ==
 - **Phones:** listen to Firestore, so changes appear within about a second of being written, with no refresh.
 - **Overall delay:** about 15–45 seconds behind the ESPN feed, which itself runs slightly behind the live
   broadcast.
-- **Cost:** about 8 hours of one small container on game day, within the free tier.
+- **Cost:** about 12 hours (noon to midnight ET) of one small container on game day, plus the small sign-in
+  service. Around free-tier levels; small overages are fine.
 
 ## Testing
 
@@ -236,7 +284,12 @@ Tests are written alongside the code and run in CI on every PR (a `test` job nex
    - missed kicks include blocked kicks but not failed 2-point tries
    - turnovers exclude turnovers on downs
    - projected (live) vs final status for each category
-   - the overall tiebreaker (closest game 3 total points)
+   - the overall tiebreaker (closest game 3 total points), and co-champions when that's still tied
+   - per-game co-winners when players tie on points
+   - a 0–0 game (nobody gets "scores first" or "how the first score was made")
+   - first TD scorer: a listed player's return TD counts as that player; an unlisted player's TD counts as
+     "Other player"
+   - longest TD includes defensive and return TDs
    - the Vegas projection formula
 2. **Recorded real games.** ESPN data from several completed 2026 games is saved as test fixtures (ideally
    including an overtime game and a game with a safety). Tests check that every derived stat matches the official
@@ -246,13 +299,30 @@ Tests are written alongside the code and run in CI on every PR (a `test` job nex
    - other players' picks can't be read before kickoff, including from the admin screen
    - only the admin can write overrides or change the spoiler delay
    - PIN-protected names can't be taken over without the PIN
-4. **End-to-end (Playwright, against the emulators):** join → make picks → kickoff locks picks → picks are
+   - a lock that has passed can't be reopened by moving kickoff later
+   - standings, the player list and revealed picks are readable without signing in; PINs never are
+4. **Sign-in service (Vitest):** joining with a name already taken (ignoring case) is refused; a wrong PIN is
+   refused and repeated wrong guesses are slowed down; a right PIN signs in on a new device; players can add
+   or change their own PIN; joining closes at game 3's kickoff.
+5. **First-TD-scorer list:** built from a recorded depth chart, it has each team's top 2 QBs, top 2 RBs, 3
+   starting WRs and starting TE, and drops players ruled out or inactive.
+6. **End-to-end (Playwright, against the emulators):** join → make picks → kickoff locks picks → picks are
    revealed → a simulated scoring update moves the leaderboard.
-5. **Before Thursday:** run the full worker against a recorded game replayed at speed, and check the standings
+7. **Before Thursday:** run the full worker against a recorded game replayed at speed, and check the standings
    it produces against a hand-worked result.
 
 Before merging, PRs also get the built-in `/code-review`, plus `/security-review` for anything touching
 sign-in or Firestore rules.
+
+## Build order
+
+Two PRs, so picks can open on time:
+
+1. **Picks (live by Wednesday, Nov 25):** the test setup (`npm test`, the CI `test` job, the Firebase
+   emulator), joining and logging in (including the sign-in service), making picks, locking, revealing picks
+   at kickoff, and the help shown while picking (Vegas projection, reference averages, the pre-game refresh).
+2. **Game day (live before 1:00 PM ET Thursday):** the live worker and watchdog, scoring, live standings, the
+   spoiler delay, and the admin screen.
 
 ## Launch and afterwards
 

@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import type { Answers } from '../../lib/thanksgiving/questions';
 import type { GameScore } from '../../lib/thanksgiving/scoring';
-import { answerText, defaultPickerPlayer, pickerPlayers, rowPoints, type Game, type Pick, type Player } from '../../lib/thanksgiving/view';
+import { answerText, defaultPickerPlayer, pickerPlayers, rowLost, rowPoints, type Game, type Pick, type Player } from '../../lib/thanksgiving/view';
 
 const ROWS: { key: keyof Answers | 'final'; label: string }[] = [
   { key: 'final', label: 'Final score' },
@@ -76,8 +76,14 @@ export function PlayerPicks({ game, picks, players, me, score }: Props) {
         {ROWS.map((r) => {
           const text = answerText(game, r.key, answers);
           const pts = scored ? rowPoints(score!.categories, r.key, current) : 0;
+          // Settled with no points for this player: greyed out.
+          const lost = scored && rowLost(score!.categories, r.key, current);
           return (
-            <li key={r.key} className={pts > 0 ? 'tg-pick-row tg-pick-hit' : 'tg-pick-row'}>
+            <li
+              key={r.key}
+              className={pts > 0 ? 'tg-pick-row tg-pick-hit' : lost ? 'tg-pick-row tg-pick-lost' : 'tg-pick-row'}
+              data-testid={`tg-pick-${r.key}`}
+            >
               <span className="tg-pick-q">{r.label}</span>
               <span className="tg-pick-a">{text || <span className="muted">—</span>}</span>
               <span className={live ? 'tg-pick-pts tg-projected' : 'tg-pick-pts'}>{pts > 0 ? `+${pts}` : ''}</span>

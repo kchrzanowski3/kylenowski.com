@@ -95,6 +95,13 @@ test('admin signs in by emailed link, fixes a stat, and the leaderboard moves', 
   await punts.getByRole('button').click();
   await expect(punts).toContainText('Total punts');
 
+  // The player picker (signed out: the game's leader, Bob) greys out settled questions he didn't get:
+  // the first score is decided and he didn't pick it; his punts are earning points.
+  await expect(viewer.getByTestId('tg-reveal-player').locator('option:checked')).toHaveText('Bob');
+  await expect(viewer.getByTestId('tg-pick-firstTeam')).toHaveClass(/tg-pick-lost/);
+  await expect(viewer.getByTestId('tg-pick-punts')).toHaveClass(/tg-pick-hit/);
+  await expect(viewer.getByTestId('tg-pick-sacks')).not.toHaveClass(/tg-pick-lost/); // still live
+
   // Wide tables scroll inside their own box; the page itself never scrolls sideways on a phone.
   for (const p of [admin, viewer]) {
     expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

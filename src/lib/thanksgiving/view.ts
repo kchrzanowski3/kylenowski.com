@@ -218,3 +218,17 @@ export function worthBadge(worth: string): string {
   const n = shortWorth(worth);
   return `${n} ${n === '1' ? 'pt' : 'pts'}`;
 }
+
+/**
+ * Whether a row of a player's picks is settled and earned them nothing, so it's greyed out: every
+ * category behind the row is final and the player got no points from any of them.
+ */
+export function rowLost(
+  categories: readonly { key: string; status: string; points: Record<string, number> }[],
+  row: keyof Answers | 'final',
+  playerId: string,
+): boolean {
+  const keys = PICK_ROW_CATEGORIES[row];
+  const cats = categories.filter((c) => keys.includes(c.key));
+  return cats.length === keys.length && keys.length > 0 && cats.every((c) => c.status === 'final') && rowPoints(cats, row, playerId) === 0;
+}

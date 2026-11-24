@@ -9,6 +9,7 @@ import {
   defaultPickerPlayer,
   gamePhase,
   pickerPlayers,
+  rowLost,
   rowPoints,
   shortWorth,
   teamLogo,
@@ -117,5 +118,32 @@ describe('help shown while picking', () => {
   });
   it('no averages, no hint', () => {
     expect(averageHint('punts', null)).toBeNull();
+  });
+});
+
+describe("a player's picks: settled rows they lost are greyed out", () => {
+  const cats: { key: string; status: string; points: Record<string, number> }[] = [
+    { key: 'finalClosest', status: 'live', points: { a: 3 } },
+    { key: 'finalWinner', status: 'live', points: { a: 1 } },
+    { key: 'finalWithin15', status: 'live', points: {} },
+    { key: 'firstTeam', status: 'final', points: { a: 1 } },
+    { key: 'halftime', status: 'final', points: {} },
+    { key: 'punts', status: 'live', points: {} },
+  ];
+  it('only once the row is final and the player got nothing from it', () => {
+    expect(rowLost(cats, 'firstTeam', 'b')).toBe(true); // decided, b was wrong
+    expect(rowLost(cats, 'firstTeam', 'a')).toBe(false); // decided, a was right
+    expect(rowLost(cats, 'halftime', 'a')).toBe(true); // nobody was right
+    expect(rowLost(cats, 'punts', 'a')).toBe(false); // still live
+  });
+  it('the final-score row is settled only when all three final-score categories are', () => {
+    expect(rowLost(cats, 'final', 'b')).toBe(false);
+    const ended = cats.map((c) => ({ ...c, status: 'final' }));
+    expect(rowLost(ended, 'final', 'b')).toBe(true);
+    expect(rowLost(ended, 'final', 'a')).toBe(false);
+  });
+  it('a row with no category behind it (or not scored yet) is never greyed', () => {
+    expect(rowLost(cats, 'sacks', 'a')).toBe(false);
+    expect(rowLost([], 'firstTeam', 'a')).toBe(false);
   });
 });

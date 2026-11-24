@@ -258,6 +258,8 @@
 .tg-pick-a { font-weight: 600; overflow-wrap: anywhere; }
 .tg-pick-pts { text-align: right; font-weight: 800; color: var(--tg-ok); }
 .tg-pick-hit { background: color-mix(in srgb, var(--tg-ok) 10%, transparent); }
+.tg-pick-lost { opacity: 0.4; }
+.tg-pick-lost .tg-pick-a { font-weight: 400; text-decoration: line-through; }
 .tg-categories td, .tg-categories th { white-space: normal; }
 
 /* "Who's getting points": a compact list; tap a row for details */

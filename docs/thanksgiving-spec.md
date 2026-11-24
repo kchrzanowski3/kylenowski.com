@@ -186,6 +186,8 @@ Kept light on text: the page shows state with icons, not instructions.
 - **Picks, from kickoff:** a list of players: you first whenever you're signed in (even with no picks for the
   game: "No picks for this game"), then everyone who made picks. It starts on you; signed out, on the game's
   leader. It shows the chosen player's 15 answers with the points each is earning and their total for the game.
+  An answer earning points is tinted green; one that's settled (every category behind it final) with no points
+  for that player, including a skipped question, is greyed out and struck through.
 - **Who's getting points this game:** the per-game scoreboard as a compact list under the picks, one row per
   category: a short name ("Punts", "Closest score"), its worth as a badge ("3 pts", "1 pt", "1/5 pts"), the
   value so far, who's right as a count ("Ann", "You", "You + 2", "6 players") and a mark: a green check once the

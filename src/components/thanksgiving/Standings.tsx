@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Standings as StandingsData } from '../../lib/thanksgiving/scoring';
 import { rankStandings, type Game, type Player } from '../../lib/thanksgiving/view';
+import { ChampionBanner, RankMedal } from './Festive';
 import { ChevronIcon, LockIcon, TeamLogo } from './icons';
 
 interface Props {
@@ -30,17 +31,25 @@ export function Standings({ standings, games, players, me, locked }: Props) {
   const projected = standings.status === 'live';
   const byId = new Map(standings.rows.map((r) => [r.playerId, r]));
   const rows = rankStandings(standings.rows.filter((r) => names.has(r.playerId)), locked, standings.status === 'final');
-  const champions = standings.champions.map((id) => names.get(id)).filter(Boolean);
+  const champions = standings.champions.map((id) => names.get(id)).filter((n): n is string => Boolean(n));
 
   return (
     <section className="tg-standings" aria-labelledby="tg-standings-title" data-testid="tg-standings">
-      <h2 id="tg-standings-title">
-        Overall standings{projected && <span className="tg-live-dot" role="img" aria-label="Live" title="Live" />}
-      </h2>
+      <div className="tg-standings-head">
+        <h2 id="tg-standings-title">Overall standings</h2>
+        {projected && (
+          <span className="tg-live-badge" role="img" aria-label="Live" title="Live">
+            <span className="tg-live-pill-dot" aria-hidden="true" />
+            Live
+          </span>
+        )}
+      </div>
       {champions.length > 0 && (
-        <p className="tg-champion" data-testid="tg-champion">
-          🏆 {champions.length > 1 ? `Co-champions: ${champions.join(' & ')}` : `Champion: ${champions[0]}`}
-        </p>
+        <ChampionBanner
+          title={champions.length > 1 ? 'Co-champions' : 'Thanksgiving Champion'}
+          names={champions.join(' & ')}
+          testId="tg-champion"
+        />
       )}
       <div className="tg-board-head" aria-hidden="true">
         <span />
@@ -52,10 +61,16 @@ export function Standings({ standings, games, players, me, locked }: Props) {
       <ol className="tg-board">
         {rows.map((r) => {
           const expanded = open === r.playerId;
+          const rowClass = [
+            r.rank === 1 ? 'tg-board-leader' : '',
+            r.playerId === me?.id ? 'tg-me' : '',
+          ]
+            .filter(Boolean)
+            .join(' ');
           return (
-            <li key={r.playerId} className={r.playerId === me?.id ? 'tg-me' : undefined}>
+            <li key={r.playerId} className={rowClass || undefined}>
               <button type="button" className="tg-board-row" aria-expanded={expanded} onClick={() => setOpen(expanded ? null : r.playerId)}>
-                <span className="tg-rank">{r.rank}</span>
+                <span className="tg-rank"><RankMedal rank={r.rank} size={28} /></span>
                 <span className="tg-board-name">{names.get(r.playerId)}{r.playerId === me?.id ? ' (you)' : ''}</span>
                 <span className="tg-points tg-board-locked" data-testid={`tg-locked-${names.get(r.playerId)}`} aria-label={`${r.locked} locked`}>{r.locked}</span>
                 <span className={projected ? 'tg-points tg-live-points' : 'tg-points'} data-testid={`tg-total-${names.get(r.playerId)}`} aria-label={`${r.live} live`}>{r.live}</span>

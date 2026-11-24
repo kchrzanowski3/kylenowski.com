@@ -15,6 +15,7 @@ import {
 import type { ScorerPosition, Side } from '../../lib/thanksgiving/types';
 import { averageHint, type Game, type Player } from '../../lib/thanksgiving/view';
 import { formatPoints } from '../../lib/thanksgiving/projection';
+import { PicksCompleteCard } from './Festive';
 
 interface Props {
   clients: Clients;
@@ -22,13 +23,17 @@ interface Props {
   me: Player;
   saved: Answers | null;
   now: number;
+  nextGame?: Game | null;
+  nextAnswered?: number;
+  onSelectGame?: (id: string) => void;
 }
 
 type Status = { kind: 'idle' | 'saving' | 'saved' } | { kind: 'error' | 'invalid'; text: string };
 
-export function PickForm({ clients, game, me, saved }: Props) {
+export function PickForm({ clients, game, me, saved, nextGame = null, nextAnswered = 0, onSelectGame }: Props) {
   const [draft, setDraft] = useState<Answers>(() => saved ?? {});
   const [status, setStatus] = useState<Status>({ kind: saved ? 'saved' : 'idle' });
+  const [justCompleted, setJustCompleted] = useState(false);
   const pending = useRef<Answers | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -58,9 +63,16 @@ export function PickForm({ clients, game, me, saved }: Props) {
   );
 
   function update<K extends keyof Answers>(key: K, value: Answers[K] | undefined) {
+    const prevCount = answeredCount(compactAnswers(draft as Record<string, unknown>));
     const next = { ...draft, [key]: value };
     setDraft(next);
     const answers = compactAnswers(next as Record<string, unknown>);
+    const nextCount = answeredCount(answers);
+    if (prevCount < QUESTION_COUNT && nextCount === QUESTION_COUNT) {
+      setJustCompleted(true);
+    } else if (nextCount < QUESTION_COUNT) {
+      setJustCompleted(false);
+    }
     const problems = answerProblems(answers as Record<string, unknown>);
     clearTimeout(timer.current);
     // With a problem in one answer, still save all the others.
@@ -79,7 +91,7 @@ export function PickForm({ clients, game, me, saved }: Props) {
   const count = answeredCount(compactAnswers(a as Record<string, unknown>));
 
   return (
-    <form className="tg-picks" onSubmit={(e) => e.preventDefault()} aria-label={`Your picks for ${away} @ ${home}`}>
+    <form className="tg-picks tg-pick-form" onSubmit={(e) => e.preventDefault()} aria-label={`Your picks for ${away} @ ${home}`}>
       <div className="tg-save" role="status" data-testid="tg-save-status">
         <span>{count} of {QUESTION_COUNT} answered</span>
         <span className={`tg-save-${status.kind}`}>{statusText(status)}</span>
@@ -145,6 +157,17 @@ export function PickForm({ clients, game, me, saved }: Props) {
           <NumberInput value={a[q.key]} max={q.max} label={q.label} onChange={(v) => update(q.key, v)} />
         </Question>
       ))}
+
+      {count === QUESTION_COUNT && (
+        <PicksCompleteCard
+          game={game}
+          nextGame={nextGame}
+          nextAnswered={nextAnswered}
+          totalQuestions={QUESTION_COUNT}
+          justCompleted={justCompleted}
+          onSelectGame={onSelectGame}
+        />
+      )}
     </form>
   );
 }

@@ -193,3 +193,33 @@ test('pick form fits mobile viewports without horizontal overflow', async ({ pag
   }
 });
 
+test('completing all 15 picks celebrates and offers seamless jump to next open game', async ({ page }) => {
+  await seed(3_600_000);
+  await join(page, 'Kyle');
+  // Standalone game-day page omits the blog nav back-link.
+  await expect(page.locator('.site-nav')).toHaveCount(0);
+
+  await page.getByLabel('CHI final score').fill('20');
+  await page.getByLabel('DET final score').fill('27');
+  await page.getByRole('group', { name: /Which team scores first/ }).getByRole('button', { name: 'DET' }).click();
+  await page.getByRole('group', { name: /How is the first score made/ }).getByRole('button', { name: 'TD' }).click();
+  await page.getByLabel('First TD scorer').selectOption({ label: 'Jahmyr Gibbs (RB)' });
+  await page.getByRole('group', { name: /Who's leading at halftime/ }).getByRole('button', { name: 'DET' }).click();
+  await page.getByRole('group', { name: /Which team has more passing TDs/ }).getByRole('button', { name: 'DET' }).click();
+  await page.getByRole('group', { name: /Which team has more rushing TDs/ }).getByRole('button', { name: 'CHI' }).click();
+  await page.getByRole('group', { name: /Missed extra point/ }).getByRole('button', { name: 'No' }).click();
+  await page.getByRole('group', { name: /Lead change in the 4th quarter/ }).getByRole('button', { name: 'Yes' }).click();
+  await page.getByLabel('Total field goals made').fill('3');
+  await page.getByLabel('Total punts').fill('7');
+  await page.getByLabel('Total touchdowns').fill('6');
+  await page.getByLabel('Combined turnovers').fill('2');
+  await page.getByLabel('Yards on the longest TD').fill('42');
+  await page.getByLabel('Combined sacks').fill('5');
+
+  await expect(page.getByTestId('tg-picks-complete')).toBeVisible();
+  await expect(page.getByTestId('tg-next-game')).toContainText('PHI @ DAL (0/15)');
+  await page.getByTestId('tg-next-game').click();
+  await expect(page.getByRole('button', { name: /PHI @ DAL/ })).toHaveAttribute('aria-current', 'page');
+});
+
+

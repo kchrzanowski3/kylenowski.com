@@ -18,9 +18,12 @@ interface Props {
   now: number;
   result: GameResult | null;
   phase: GamePhase;
+  nextGame?: Game | null;
+  nextAnswered?: number;
+  onSelectGame?: (id: string) => void;
 }
 
-export function GamePanel({ clients, game, me, players, now, result, phase }: Props) {
+export function GamePanel({ clients, game, me, players, now, result, phase, nextGame = null, nextAnswered = 0, onSelectGame }: Props) {
   const locked = isLocked(game.kickoff, now);
   // Your saved picks, tagged with whose they are, so the form never starts from another sign-in's
   // (or a not-yet-loaded) state.
@@ -82,39 +85,52 @@ export function GamePanel({ clients, game, me, players, now, result, phase }: Pr
 
   return (
     <section className="tg-game" aria-labelledby={`tg-game-${game.id}`}>
-      <header className="tg-game-head">
+      <header className={scored ? 'tg-game-head tg-game-head-scored' : 'tg-game-head'}>
         {/* Once the game is under way the team names carry the score, with the clock below. */}
         <h2 id={`tg-game-${game.id}`} className="tg-matchup" data-testid={scored ? 'tg-livescore' : undefined}>
-          <span className="tg-matchup-team"><TeamLogo team={game.away} size={36} /> {game.away.shortName}</span>
+          <span className="tg-matchup-team"><TeamLogo team={game.away} size={42} /> {game.away.shortName}</span>
           {scored ? (
             <span className="tg-matchup-score">
-              {result!.stats.away} <span className="muted">–</span> {result!.stats.home}
+              {result!.stats.away} <span className="tg-score-dash">–</span> {result!.stats.home}
             </span>
           ) : (
-            <span className="muted">@</span>
+            <span className="tg-matchup-at">@</span>
           )}
-          <span className="tg-matchup-team">{game.home.shortName} <TeamLogo team={game.home} size={36} /></span>
+          <span className="tg-matchup-team">{game.home.shortName} <TeamLogo team={game.home} size={42} /></span>
         </h2>
-        {scored && (
-          <p className={phase === 'live' ? 'tg-clock tg-clock-live' : 'tg-clock'} data-testid="tg-clock">{gameClock(result!.stats)}</p>
-        )}
-        <p className="tg-game-meta">
+        <div className="tg-game-meta">
+          {scored && (
+            <span className={phase === 'live' ? 'tg-clock tg-clock-live' : 'tg-clock'} data-testid="tg-clock">
+              {phase === 'live' && <span className="tg-live-pill-dot" aria-hidden="true" />}
+              {gameClock(result!.stats)}
+            </span>
+          )}
           <span className={`tg-phase tg-phase-${phase}`} data-testid="tg-lock-status" data-phase={phase}>
             <LockIcon phase={phase} size={14} />
             {phase === 'open' ? countdown(game.kickoff - now) : phase === 'live' ? 'Locked' : 'Final'}
           </span>
-          <span className="muted">
+          <span className="tg-game-broadcast">
             {etDateTime(game.kickoff)}
             {game.tv ? ` · ${game.tv}` : ''}
           </span>
-        </p>
+        </div>
       </header>
 
       {!locked && me && mine?.playerId !== me.id && <p className="muted">Loading your picks…</p>}
       {!locked && me && mine?.playerId === me.id && (
-        <PickForm key={me.id} clients={clients} game={game} me={me} saved={mine.answers} now={now} />
+        <PickForm
+          key={me.id}
+          clients={clients}
+          game={game}
+          me={me}
+          saved={mine.answers}
+          now={now}
+          nextGame={nextGame}
+          nextAnswered={nextAnswered}
+          onSelectGame={onSelectGame}
+        />
       )}
-      {!locked && !me && <p className="muted">Sign in above to make your picks.</p>}
+      {!locked && !me && <p className="muted tg-signin-nudge">Sign in above to make your picks.</p>}
       {locked && (
         <Scoreboard game={game} result={result} players={players} me={me}>
           <PlayerPicks game={game} picks={everyone} players={players} me={me} score={result?.score ?? null} />

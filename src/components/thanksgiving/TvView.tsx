@@ -7,6 +7,7 @@ import type { Standings as StandingsData } from '../../lib/thanksgiving/scoring'
 import { formatPoints } from '../../lib/thanksgiving/projection';
 import { etDateTime } from '../../lib/thanksgiving/config';
 import { autoGameId, rankStandings, worthBadge, type Game, type GamePhase, type Player } from '../../lib/thanksgiving/view';
+import { ChampionBanner, RankMedal } from './Festive';
 import { LockIcon, TeamLogo, TeamText } from './icons';
 import { gameClock, type GameResult } from './Scoreboard';
 
@@ -75,25 +76,32 @@ export function TvView({ games, phases, results, standings, locked, players, onE
   const game = games.find((g) => g.id === activeId) ?? null;
   const phaseOf = new Map(phases.map((p) => [p.id, p.phase]));
   const names = new Map(players.map((p) => [p.id, p.name]));
+  const champions = (standings?.champions ?? []).map((id) => names.get(id)).filter((n): n is string => Boolean(n));
 
   return (
     <div className="tg-tv" ref={root} role="dialog" aria-label="Full-screen scoreboard" data-testid="tg-tv">
       <header className="tg-tv-top">
         <nav className="tg-tv-games" aria-label="Scoreboard games">
-          {games.map((g) => (
-            <button
-              key={g.id}
-              type="button"
-              className="tg-tv-tab"
-              aria-current={g.id === activeId ? 'page' : undefined}
-              onClick={() => setChosen({ id: g.id, autoAt: auto })}
-            >
-              <TeamLogo team={g.away} size={28} standIn />
-              <span className="muted">@</span>
-              <TeamLogo team={g.home} size={28} standIn />
-              <LockIcon phase={phaseOf.get(g.id) ?? 'open'} size={13} />
-            </button>
-          ))}
+          {games.map((g) => {
+            const gPhase = phaseOf.get(g.id) ?? 'open';
+            const gStats = gPhase !== 'open' && results[g.id]?.stats && results[g.id].stats.state !== 'pre' ? results[g.id].stats : null;
+            return (
+              <button
+                key={g.id}
+                type="button"
+                className={`tg-tv-tab tg-tv-tab-${gPhase}`}
+                aria-current={g.id === activeId ? 'page' : undefined}
+                onClick={() => setChosen({ id: g.id, autoAt: auto })}
+              >
+                <TeamLogo team={g.away} size={26} standIn />
+                <span className="tg-tv-tab-label">
+                  {gStats ? `${g.away.abbr} ${gStats.away} – ${gStats.home} ${g.home.abbr}` : `${g.away.abbr} @ ${g.home.abbr}`}
+                </span>
+                <TeamLogo team={g.home} size={26} standIn />
+                <LockIcon phase={gPhase} size={13} />
+              </button>
+            );
+          })}
         </nav>
         <button type="button" className="tg-tv-exit" onClick={onExit}>Exit full screen</button>
       </header>
@@ -103,9 +111,21 @@ export function TvView({ games, phases, results, standings, locked, players, onE
           {game && <TvGame game={game} phase={phaseOf.get(game.id) ?? 'open'} result={results[game.id] ?? null} names={names} />}
         </section>
         <aside className="tg-tv-standings" aria-labelledby="tg-tv-standings-title">
-          <h2 id="tg-tv-standings-title">
-            Overall standings{standings?.status === 'live' && <span className="tg-live-dot" role="img" aria-label="Live" />}
-          </h2>
+          <div className="tg-standings-head">
+            <h2 id="tg-tv-standings-title">Overall standings</h2>
+            {standings?.status === 'live' && (
+              <span className="tg-live-badge" role="img" aria-label="Live">
+                <span className="tg-live-pill-dot" aria-hidden="true" />
+                Live
+              </span>
+            )}
+          </div>
+          {champions.length > 0 && (
+            <ChampionBanner
+              title={champions.length > 1 ? 'Co-champions' : 'Thanksgiving Champion'}
+              names={champions.join(' & ')}
+            />
+          )}
           {standings && standings.status !== 'pre' ? (
             <table className="tg-tv-table" data-testid="tg-tv-standings">
               <thead>
@@ -118,8 +138,8 @@ export function TvView({ games, phases, results, standings, locked, players, onE
               </thead>
               <tbody>
                 {rankStandings(standings.rows.filter((r) => names.has(r.playerId)), locked, standings.status === 'final').map((r) => (
-                  <tr key={r.playerId}>
-                    <td className="tg-rank">{r.rank}</td>
+                  <tr key={r.playerId} className={r.rank === 1 ? 'tg-tv-leader' : undefined}>
+                    <td className="tg-rank"><RankMedal rank={r.rank} size={28} /></td>
                     <td>{names.get(r.playerId)}</td>
                     <td className="tg-num tg-board-locked">{r.locked}</td>
                     <td className="tg-num tg-live-points">{r.live}</td>
@@ -139,30 +159,42 @@ export function TvView({ games, phases, results, standings, locked, players, onE
 function TvGame({ game, phase, result, names }: { game: Game; phase: GamePhase; result: GameResult | null; names: Map<string, string> }) {
   const scored = phase !== 'open' && !!result && result.score.status !== 'pre';
   const { line, projection } = game;
+  const gameWinners = (result?.score.winners ?? []).map((id) => names.get(id)).filter((n): n is string => Boolean(n));
   return (
     <>
-      <h2 className="tg-tv-matchup" data-testid="tg-tv-matchup">
-        <span className="tg-matchup-team"><TeamLogo team={game.away} size={56} /> {game.away.shortName}</span>
-        {scored ? (
-          <span className="tg-matchup-score">{result!.stats.away} <span className="muted">–</span> {result!.stats.home}</span>
-        ) : (
-          <span className="muted">@</span>
-        )}
-        <span className="tg-matchup-team">{game.home.shortName} <TeamLogo team={game.home} size={56} /></span>
-      </h2>
-      <p className="tg-tv-sub">
-        {scored ? (
-          <span className={phase === 'live' ? 'tg-clock tg-clock-live' : 'tg-clock'}>{gameClock(result!.stats)}</span>
-        ) : (
-          <span className="muted">
-            {phase === 'open' ? `Kicks off ${etDateTime(game.kickoff)}` : 'Starting soon'}
-            {game.tv ? ` · ${game.tv}` : ''}
-            {line && projection
-              ? ` · Vegas projects ${game.away.abbr} ${formatPoints(projection.away)} – ${game.home.abbr} ${formatPoints(projection.home)}`
-              : ''}
-          </span>
-        )}
-      </p>
+      <div className="tg-tv-scoreboard-head">
+        <h2 className="tg-tv-matchup" data-testid="tg-tv-matchup">
+          <span className="tg-matchup-team"><TeamLogo team={game.away} size={56} /> {game.away.shortName}</span>
+          {scored ? (
+            <span className="tg-matchup-score">{result!.stats.away} <span className="tg-score-dash">–</span> {result!.stats.home}</span>
+          ) : (
+            <span className="tg-matchup-at">@</span>
+          )}
+          <span className="tg-matchup-team">{game.home.shortName} <TeamLogo team={game.home} size={56} /></span>
+        </h2>
+        <p className="tg-tv-sub">
+          {scored ? (
+            <span className={phase === 'live' ? 'tg-clock tg-clock-live' : 'tg-clock'}>
+              {phase === 'live' && <span className="tg-live-pill-dot" aria-hidden="true" />}
+              {gameClock(result!.stats)}
+            </span>
+          ) : (
+            <span className="muted">
+              {phase === 'open' ? `Kicks off ${etDateTime(game.kickoff)}` : 'Starting soon'}
+              {game.tv ? ` · ${game.tv}` : ''}
+              {line && projection
+                ? ` · Vegas projects ${game.away.abbr} ${formatPoints(projection.away)} – ${game.home.abbr} ${formatPoints(projection.home)}`
+                : ''}
+            </span>
+          )}
+        </p>
+      </div>
+      {gameWinners.length > 0 && (
+        <ChampionBanner
+          title={gameWinners.length > 1 ? 'Game winners' : 'Game winner'}
+          names={gameWinners.join(' & ')}
+        />
+      )}
 
       {scored && (
         <table className="tg-tv-table tg-tv-cats" data-testid="tg-tv-categories">

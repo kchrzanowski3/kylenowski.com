@@ -1,9 +1,11 @@
 name: deploy
 
-# PRs to main:    build, tests, terraform plan (read-only), Firebase Hosting preview channel.
-# Pushes to main: build, tests, terraform apply, deploy dist/ to the live site.
-# Nothing is applied or deployed unless the tests pass. After a production deploy, read-only smoke
-# tests check the live site, and the merged PR gets a comment saying whether it all worked.
+# PRs to main:    build, tests, security review, terraform plan (read-only), Firebase Hosting preview
+#                 channel, and read-only runtime security checks against the preview URL.
+# Pushes to main: build, tests, security review, terraform apply, deploy dist/ to the live site.
+# Nothing is applied or deployed unless the tests and security gate pass. After a production deploy,
+# read-only smoke + security tests check the live site, and the merged PR gets a comment saying
+# whether it all worked.
 on:
   push:
     branches: [main]
@@ -18,12 +20,13 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write # GitHub OIDC token -> GCP Workload Identity Federation (no keys)
 
 env:
   TF_VERSION: 1.17.2
   TF_IN_AUTOMATION: "true"
   FIREBASE_TOOLS: firebase-tools@15.37.0
+  GITLEAKS_VERSION: 8.30.1
+  ACTIONLINT_VERSION: 1.7.12
   GCP_PROJECT_ID: kylenowski-com
   GCP_WIF_PROVIDER: projects/420500505231/locations/global/workloadIdentityPools/github/providers/github
   # ci-deployer can only be used by runs on refs/heads/main (enforced in GCP IAM).
@@ -36,14 +39,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npm run build # astro check + astro build
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: dist
           path: dist
@@ -54,16 +59,18 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
           cache: npm
-      - uses: actions/setup-java@v5 # the Firestore emulator runs on Java
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5 # the Firestore emulator runs on Java
         with:
           distribution: temurin
           java-version: "21"
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/firebase/emulators
           key: firebase-emulators-${{ hashFiles('package-lock.json') }}
@@ -75,16 +82,166 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: End-to-end tests
         run: npm run test:e2e
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
           name: playwright-report
           path: playwright-report
           retention-days: 7
 
-  infra:
-    needs: [test]
+  # Fast security review gate (runs in parallel with build and test, gates infra and hosting):
+  #   - Blocking (PRs + main): secrets (Gitleaks), high/critical SAST (Semgrep), high/critical IaC
+  #     (Trivy), workflow security & shell linting (zizmor, actionlint, shellcheck).
+  #   - Blocking (PRs only): newly introduced high/critical CVEs (dependency-review-action), so a
+  #     freshly disclosed CVE cannot lock out a game-day hotfix on main.
+  #   - Advisory (Security tab SARIF): medium/low findings and full-lockfile CVE inventory.
+  security:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Dependency review (PRs only)
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
+        with:
+          fail-on-severity: high
+
+      - name: Set up Trivy
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.76.2
+          cache: true
+
+      - name: Install Gitleaks and actionlint
+        run: |
+          set -euo pipefail
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz -C /usr/local/bin actionlint
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Semgrep and zizmor
+        run: python3 -m pip install --quiet semgrep zizmor
+
+      - name: Secrets scan (Gitleaks)
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ] && [ -n "$BASE_SHA" ] && [ -n "$HEAD_SHA" ]; then
+            gitleaks git --log-opts="${BASE_SHA}..${HEAD_SHA}" --verbose --redact --no-banner .
+          else
+            gitleaks git --verbose --redact --no-banner .
+          fi
+
+      - name: SAST scan (Semgrep)
+        id: semgrep
+        run: |
+          set -euo pipefail
+          semgrep scan \
+            --config p/typescript \
+            --config p/react \
+            --config p/security-audit \
+            --config p/secrets \
+            --sarif --sarif-output=semgrep.sarif \
+            --quiet --exclude tests/fixtures \
+            src/ functions/src/ scripts/
+          errors="$(jq '[.runs[].results[] | select(.level == "error")] | length' semgrep.sarif)"
+          total="$(jq '[.runs[].results[]] | length' semgrep.sarif)"
+          echo "Semgrep findings: ${total} total, ${errors} error(s)." >> "$GITHUB_STEP_SUMMARY"
+          if [ "$errors" -gt 0 ]; then
+            jq -r '.runs[].results[] | select(.level == "error") | "::error file=\(.locations[0].physicalLocation.artifactLocation.uri),line=\(.locations[0].physicalLocation.region.startLine)::\(.ruleId): \(.message.text)"' semgrep.sarif
+            exit 1
+          fi
+
+      - name: Upload Semgrep SARIF
+        if: always() && hashFiles('semgrep.sarif') != ''
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+      - name: IaC scan (Trivy Terraform)
+        run: |
+          set -euo pipefail
+          trivy config --ignorefile .trivyignore.yaml \
+            --severity LOW,MEDIUM,HIGH,CRITICAL \
+            --format sarif --output trivy-iac.sarif infra/
+          trivy config --ignorefile .trivyignore.yaml \
+            --severity HIGH,CRITICAL --exit-code 1 infra/
+
+      - name: Upload Trivy IaC SARIF
+        if: always() && hashFiles('trivy-iac.sarif') != ''
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        with:
+          sarif_file: trivy-iac.sarif
+          category: trivy-iac
+
+      - name: Dependency audit (Trivy SCA, advisory)
+        run: |
+          set -euo pipefail
+          trivy fs --scanners vuln --include-dev-deps \
+            --severity LOW,MEDIUM,HIGH,CRITICAL \
+            --format sarif --output trivy-sca.sarif .
+          {
+            echo '### Dependency vulnerability inventory (advisory)'
+            echo '```'
+            trivy fs --scanners vuln --include-dev-deps --severity HIGH,CRITICAL .
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Trivy SCA SARIF
+        if: always() && hashFiles('trivy-sca.sarif') != ''
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        with:
+          sarif_file: trivy-sca.sarif
+          category: trivy-sca
+
+      - name: Workflow security audit (zizmor)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          zizmor --format sarif .github/ > zizmor.sarif
+          rc=$?
+          set -e
+          # zizmor exit codes: 0 = clean, 10..13 = unknown/info/low/medium, 14 = high, 1..9 = tool error.
+          if [ "$rc" -eq 14 ] || { [ "$rc" -ne 0 ] && [ "$rc" -lt 10 ]; }; then
+            zizmor .github/ || true
+            exit "$rc"
+          fi
+
+      - name: Upload zizmor SARIF
+        if: always() && hashFiles('zizmor.sarif') != ''
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        with:
+          sarif_file: zizmor.sarif
+          category: zizmor
+
+      - name: Workflow & shell linting (actionlint + shellcheck)
+        run: |
+          set -euo pipefail
+          actionlint -color=false
+          shellcheck scripts/*.sh
+
+  infra:
+    needs: [test, security]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC token -> GCP Workload Identity Federation (no keys)
     defaults:
       run:
         working-directory: infra
@@ -93,10 +250,12 @@ jobs:
       # The Thanksgiving admin's email address: a sensitive Terraform variable, so it's hidden in plans.
       TF_VAR_admin_email: ${{ secrets.TG_ADMIN_EMAIL }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       # Terraform zips functions/dist (infra/thanksgiving.tf), so build it before planning.
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -104,12 +263,12 @@ jobs:
         working-directory: .
         run: npm ci && npm run build:functions
 
-      - uses: google-github-actions/auth@v3
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
           service_account: ${{ env.IS_DEPLOY == 'true' && env.GCP_DEPLOYER_SA || env.GCP_READER_SA }}
 
-      - uses: hashicorp/setup-terraform@v4
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
@@ -174,27 +333,31 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   hosting:
-    needs: [build, test, infra]
+    needs: [build, test, security, infra]
     runs-on: ubuntu-latest
     # Shows in the repo's Deployments panel and on the PR: "preview" for PRs, "production" for main.
     environment:
       name: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
       url: ${{ steps.preview.outputs.url || 'https://kylenowski.com' }}
+    outputs:
+      url: ${{ steps.preview.outputs.url }}
     permissions:
       contents: read
       id-token: write # GCP login (Workload Identity Federation)
       pull-requests: write # put the preview link in the PR description
     steps:
-      - uses: actions/checkout@v7 # for firebase.json
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7 # for firebase.json
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: dist
           path: dist
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
 
-      - uses: google-github-actions/auth@v3
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
           service_account: ${{ env.IS_DEPLOY == 'true' && env.GCP_DEPLOYER_SA || env.GCP_PREVIEW_SA }}
@@ -235,23 +398,51 @@ jobs:
           gh api -X PATCH "repos/$REPO/pulls/$PR" -F body=@body.md > /dev/null
           { echo '### PR description links'; sed -n '2,3p' body.md; } >> "$GITHUB_STEP_SUMMARY"
 
+  # Read-only runtime security assertions against the PR preview channel (headers, CSP, CORS, auth).
+  preview-security:
+    needs: [hosting]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Runtime security assertions against PR preview channel
+        env:
+          SMOKE_URL: ${{ needs.hosting.outputs.url }}
+        run: npm run test:security-smoke
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: failure()
+        with:
+          name: playwright-report-security-preview
+          path: playwright-report-smoke
+          retention-days: 7
+
   # Read-only checks against the live site after a production deploy (tests/smoke): the pages load
-  # without console errors, the app reaches Firestore, and the sign-in service answers.
+  # without console errors, security headers/CSP/CORS/auth hold, the app reaches Firestore, and the
+  # sign-in service answers.
   smoke:
     needs: [hosting]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Smoke tests against https://kylenowski.com
+      - name: Smoke & security tests against https://kylenowski.com
         run: npm run test:smoke
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
           name: playwright-report-smoke
@@ -260,7 +451,7 @@ jobs:
 
   # Tells the merged PR whether the deploy worked, so a failure after merging isn't missed.
   report:
-    needs: [build, test, infra, hosting, smoke]
+    needs: [build, test, security, infra, hosting, smoke]
     if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -275,19 +466,20 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
           TEST: ${{ needs.test.result }}
           BUILD: ${{ needs.build.result }}
+          SECURITY: ${{ needs.security.result }}
           INFRA: ${{ needs.infra.result }}
           HOSTING: ${{ needs.hosting.result }}
           SMOKE: ${{ needs.smoke.result }}
         run: |
           icon() { case "$1" in success) echo "✅";; skipped) echo "⏭️";; cancelled) echo "⚪";; *) echo "❌";; esac; }
-          if [ "$TEST$BUILD$INFRA$HOSTING$SMOKE" = "successsuccesssuccesssuccesssuccess" ]; then
+          if [ "$TEST$BUILD$SECURITY$INFRA$HOSTING$SMOKE" = "successsuccesssuccesssuccesssuccesssuccess" ]; then
             head="✅ **Deployed to [kylenowski.com](https://kylenowski.com)** (${SHA::7}), and the live smoke tests passed."
           else
             head="❌ **Deploy of ${SHA::7} did not finish.** The live site may still be on the previous version. [See the run]($RUN_URL)."
           fi
-          body="$(printf '%s\n\n| Step | Result |\n|---|---|\n| Tests | %s %s |\n| Build | %s %s |\n| Infra (Terraform apply) | %s %s |\n| Live site upload | %s %s |\n| Smoke tests on the live site | %s %s |\n\n[Run](%s)' \
-            "$head" "$(icon "$TEST")" "$TEST" "$(icon "$BUILD")" "$BUILD" "$(icon "$INFRA")" "$INFRA" \
-            "$(icon "$HOSTING")" "$HOSTING" "$(icon "$SMOKE")" "$SMOKE" "$RUN_URL")"
+          body="$(printf '%s\n\n| Step | Result |\n|---|---|\n| Tests | %s %s |\n| Build | %s %s |\n| Security review | %s %s |\n| Infra (Terraform apply) | %s %s |\n| Live site upload | %s %s |\n| Smoke & security tests on the live site | %s %s |\n\n[Run](%s)' \
+            "$head" "$(icon "$TEST")" "$TEST" "$(icon "$BUILD")" "$BUILD" "$(icon "$SECURITY")" "$SECURITY" \
+            "$(icon "$INFRA")" "$INFRA" "$(icon "$HOSTING")" "$HOSTING" "$(icon "$SMOKE")" "$SMOKE" "$RUN_URL")"
           echo "$body" >> "$GITHUB_STEP_SUMMARY"
           for pr in $(gh api "repos/$REPO/commits/$SHA/pulls" --jq '.[].number'); do
             gh api "repos/$REPO/issues/$pr/comments" -f body="$body" > /dev/null

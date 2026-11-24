@@ -16,7 +16,8 @@
     "test:unit": "vitest run",
     "test:emulator": "firebase emulators:exec --only firestore,auth --project demo-kylenowski \"vitest run --config vitest.emulator.config.ts\"",
     "test:e2e": "npm run build:functions && PUBLIC_TG_EMULATOR=1 PUBLIC_TG_API=http://127.0.0.1:8090 PUBLIC_TG_ADMIN_API=http://127.0.0.1:8091 astro build && playwright test",
-    "test:smoke": "playwright test -c playwright.smoke.config.ts"
+    "test:smoke": "playwright test -c playwright.smoke.config.ts",
+    "test:security-smoke": "playwright test -c playwright.smoke.config.ts tests/smoke/security.spec.ts"
   },
   "dependencies": {
     "@astrojs/react": "^7.1.9",

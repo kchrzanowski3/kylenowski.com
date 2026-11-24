@@ -1,0 +1,106 @@
+name: security
+
+# Deep static analysis (CodeQL) on PRs and pushes to main, plus a weekly full
+# audit (Trivy SCA/IaC + Gitleaks) so newly published CVEs surface in the
+# GitHub Security tab even when no PRs are opened.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 8 * * 1" # Mondays at 08:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  GITLEAKS_VERSION: 8.30.1
+
+jobs:
+  codeql:
+    name: CodeQL (JS/TS)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        with:
+          category: /language:javascript-typescript
+
+  weekly-audit:
+    name: Weekly full audit
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Trivy
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.76.2
+          cache: true
+
+      - name: Trivy IaC scan (Terraform)
+        run: |
+          trivy config --ignorefile .trivyignore.yaml \
+            --severity LOW,MEDIUM,HIGH,CRITICAL \
+            --format sarif --output trivy-iac-weekly.sarif infra/
+          trivy config --ignorefile .trivyignore.yaml \
+            --severity HIGH,CRITICAL --exit-code 1 infra/
+
+      - name: Upload Trivy IaC SARIF
+        if: always() && hashFiles('trivy-iac-weekly.sarif') != ''
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        with:
+          sarif_file: trivy-iac-weekly.sarif
+          category: trivy-iac
+
+      - name: Trivy SCA scan (npm lockfiles)
+        run: |
+          trivy fs --scanners vuln --include-dev-deps \
+            --severity LOW,MEDIUM,HIGH,CRITICAL \
+            --format sarif --output trivy-sca-weekly.sarif .
+          {
+            echo '### Weekly dependency vulnerability scan (Trivy)'
+            echo '```'
+            trivy fs --scanners vuln --include-dev-deps --severity HIGH,CRITICAL .
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Trivy SCA SARIF
+        if: always() && hashFiles('trivy-sca-weekly.sarif') != ''
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        with:
+          sarif_file: trivy-sca-weekly.sarif
+          category: trivy-sca
+
+      - name: Gitleaks full history scan
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks git --verbose --redact --no-banner .

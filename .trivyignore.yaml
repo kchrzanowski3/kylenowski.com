@@ -1,0 +1,19 @@
+# Approved Trivy IaC exceptions — each entry is individually approved and scoped
+# to a specific file/resource with a plain-English justification.
+misconfigurations:
+  - id: AVD-GCP-0066
+    paths:
+      - thanksgiving.tf
+    statement: >-
+      functions_source only holds zipped Cloud Functions bundles built from this
+      public GitHub repository. Google-managed encryption at rest is sufficient;
+      customer-managed Cloud KMS keys (CMEK) add cost and key-rotation overhead
+      without protecting private data.
+  - id: AVD-GCP-0077
+    paths:
+      - thanksgiving.tf
+    statement: >-
+      functions_source enforces public_access_prevention and uniform bucket-level
+      access, contains only public-repo build zips, and is only read by tg-build
+      during deploys. Adding a dedicated access-logging bucket adds extra GCP
+      resources with no privacy benefit.

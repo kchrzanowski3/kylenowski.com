@@ -315,7 +315,7 @@ body.tg-body .shell {
   color: var(--fg);
   font-weight: 600;
   cursor: pointer;
-  min-height: 2.65rem;
+  min-height: 2.75rem;
   transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1), border-color 140ms, background-color 140ms;
 }
 
@@ -829,7 +829,7 @@ body.tg-body .shell {
 /* Pick Form */
 .tg-pick-form {
   display: grid;
-  gap: 0.8rem;
+  gap: 1.1rem;
   margin-top: 1rem;
   min-width: 0;
 }
@@ -839,31 +839,160 @@ body.tg-body .shell {
   top: 0.5rem;
   z-index: 4;
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 1rem;
-  padding: 0.55rem 0.85rem;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0.8rem;
   border: 1.5px solid var(--tg-line-strong, var(--tg-line));
-  border-radius: 0.65rem;
+  border-radius: 0.7rem;
   background: var(--tg-card);
-  box-shadow: var(--tg-shadow-sm);
+  box-shadow: 0 6px 18px rgba(38, 25, 12, 0.11);
   font-size: 0.92rem;
   font-weight: 600;
+}
+
+.tg-save-row {
+  display: flex;
+  flex: 1 1 13rem;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.25rem 0.65rem;
+  min-width: 0;
+}
+
+.tg-save-count {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .tg-save-saved {
   color: var(--tg-ok);
   font-weight: 700;
+  text-align: right;
 }
+
 .tg-save-error,
 .tg-save-invalid {
   color: var(--tg-bad);
   text-align: right;
   font-weight: 700;
+  line-height: 1.3;
+}
+
+@media (max-width: 600px) {
+  .tg-save-error,
+  .tg-save-invalid {
+    flex: 1 0 100%;
+    text-align: left;
+    font-size: 0.85rem;
+  }
+}
+
+.tg-jump-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.75rem;
+  padding: 0.45rem 0.85rem;
+  border: 1.5px solid rgba(22, 91, 51, 0.32);
+  border-radius: 999px;
+  background: rgba(22, 91, 51, 0.09);
+  color: var(--tg-turf-deep);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.1;
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1), background-color 140ms, border-color 140ms;
+}
+
+.tg-jump-btn:hover {
+  background: rgba(22, 91, 51, 0.16);
+  border-color: var(--tg-turf);
+}
+
+.tg-jump-btn:active {
+  transform: scale(0.97);
+}
+
+.tg-jump-btn-error {
+  border-color: rgba(166, 28, 44, 0.4);
+  background: rgba(166, 28, 44, 0.09);
+  color: var(--tg-bad);
+}
+
+.tg-jump-btn-error:hover {
+  background: rgba(166, 28, 44, 0.16);
+  border-color: var(--tg-bad);
+}
+
+@media (max-width: 520px) {
+  .tg-jump-btn {
+    width: 100%;
+  }
+}
+
+.tg-q-section {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.tg-q-section + .tg-q-section {
+  margin-top: 0.45rem;
+}
+
+.tg-q-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0 0.1rem 0.35rem;
+  border-bottom: 1.5px solid var(--tg-line);
+}
+
+.tg-q-section-title {
+  margin: 0;
+  font-family: var(--tg-font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.05;
+  color: var(--tg-turf-deep);
+}
+
+.tg-q-section-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.14rem 0.55rem;
+  border-radius: 999px;
+  background: var(--tg-soft);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.tg-q-section-done {
+  background: rgba(21, 102, 56, 0.13);
+  color: var(--tg-ok);
+}
+
+.tg-q-section-list {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .tg-q {
-  border: 1px solid var(--tg-line);
+  border: 1.5px solid var(--tg-line);
   border-radius: 0.85rem;
   padding: 0.9rem 1.05rem 1rem;
   margin: 0;
@@ -871,6 +1000,27 @@ body.tg-body .shell {
   max-width: 100%;
   background: var(--tg-card);
   box-shadow: var(--tg-shadow-sm);
+  scroll-margin-top: 6.5rem;
+  transition: border-color 180ms, background-color 180ms, box-shadow 180ms;
+}
+
+.tg-q-invalid {
+  border-color: var(--tg-bad);
+  background: #fff9f9;
+}
+
+.tg-q-flash {
+  animation: tg-card-flash 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes tg-card-flash {
+  0% {
+    border-color: var(--tg-gold);
+    box-shadow: 0 4px 18px rgba(200, 135, 25, 0.24);
+  }
+  100% {
+    box-shadow: var(--tg-shadow-sm);
+  }
 }
 
 .tg-q-legend {
@@ -906,12 +1056,26 @@ body.tg-body .shell {
   width: 1.65rem;
   height: 1.65rem;
   border-radius: 50%;
-  background: var(--tg-turf);
-  color: #fffcf6;
+  border: 1px solid var(--tg-line-strong, var(--tg-line));
+  background: var(--tg-soft);
+  color: var(--fg);
   font-family: var(--tg-font-display);
   font-size: 0.95rem;
   font-weight: 800;
   line-height: 1;
+  transition: background-color 160ms, border-color 160ms, color 160ms;
+}
+
+.tg-q-answered .tg-q-n {
+  background: var(--tg-turf);
+  border-color: var(--tg-turf);
+  color: #fffcf6;
+}
+
+.tg-q-invalid .tg-q-n {
+  background: var(--tg-bad);
+  border-color: var(--tg-bad);
+  color: #fffcf6;
 }
 
 .tg-q .tg-q-pts {
@@ -921,6 +1085,14 @@ body.tg-body .shell {
   line-height: 1.4;
   color: var(--muted);
   overflow-wrap: break-word;
+}
+
+.tg-q .tg-q-error {
+  margin: 0.55rem 0 0.1rem;
+  color: var(--tg-bad);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .tg-help {
@@ -944,6 +1116,7 @@ body.tg-body .shell {
   color: var(--fg);
   font-weight: 700;
   cursor: pointer;
+  touch-action: manipulation;
   transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1), background-color 140ms, border-color 140ms, color 140ms;
 }
 
@@ -966,6 +1139,7 @@ body.tg-body .shell {
 .tg-number,
 .tg-select {
   font: inherit;
+  font-size: 1rem;
   margin-top: 0.4rem;
   padding: 0.5rem 0.65rem;
   border: 1.5px solid var(--tg-line-strong, var(--tg-line));
@@ -975,11 +1149,94 @@ body.tg-body .shell {
   max-width: 100%;
 }
 
+.tg-number[aria-invalid='true'],
+.tg-select[aria-invalid='true'] {
+  border-color: var(--tg-bad);
+  background: #fff4f4;
+}
+
 .tg-number {
   width: 5.75rem;
   min-height: 2.75rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.tg-stepper {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+  max-width: 100%;
+}
+
+.tg-stepper .tg-number {
+  margin-top: 0;
+  width: 4.5rem;
+  min-width: 3.75rem;
+  padding: 0.45rem 0.35rem;
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.tg-stepper .tg-number::-webkit-inner-spin-button,
+.tg-stepper .tg-number::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.tg-stepper-btn {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.45rem;
+  border: 1.5px solid var(--tg-line-strong, var(--tg-line));
+  border-radius: 0.55rem;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--tg-font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1), border-color 140ms, background-color 140ms;
+}
+
+.tg-stepper-coarse {
+  font-size: 1.05rem;
+  background: var(--tg-soft);
+}
+
+.tg-stepper-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--tg-card);
+}
+
+.tg-stepper-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.tg-stepper-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.tg-stepper-wide {
+  gap: 0.25rem;
+}
+
+@media (max-width: 380px) {
+  .tg-stepper-wide .tg-number {
+    width: 3.6rem;
+    min-width: 3.4rem;
+    padding: 0.45rem 0.2rem;
+  }
 }
 
 .tg-pick-form .tg-select {
@@ -1163,7 +1420,8 @@ body.tg-body .shell {
     display: none;
   }
   .tg-complete-card,
-  .tg-champ-banner {
+  .tg-champ-banner,
+  .tg-q-flash {
     animation: none;
   }
   .tg-tab,
@@ -1171,7 +1429,11 @@ body.tg-body .shell {
   .tg-choice button,
   .tg-primary,
   .tg-next-game-btn,
-  .tg-progress-fill {
+  .tg-progress-fill,
+  .tg-q,
+  .tg-q-n,
+  .tg-stepper-btn,
+  .tg-jump-btn {
     transition: none;
   }
 }
@@ -1572,7 +1834,7 @@ body.tg-body .shell {
   box-shadow: var(--tg-shadow-sm);
 }
 
-.tg-picks:not(.tg-pick-form) {
+.tg-picks {
   display: grid;
   gap: 0.55rem;
   margin: 0;
@@ -1591,7 +1853,7 @@ body.tg-body .shell {
   margin-top: 0;
   font-weight: 700;
   background: var(--tg-card);
-  min-height: 2.65rem;
+  min-height: 2.75rem;
 }
 
 .tg-picks-head .tg-points {

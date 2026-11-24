@@ -5,7 +5,16 @@ import { average, seasonAverages } from '../../src/lib/thanksgiving/averages';
 import { isLocked, nextKickoff } from '../../src/lib/thanksgiving/kickoff';
 import { FREE_PIN_GUESSES, cleanName, isValidPin, nameKey, nameProblem, pinLockMs } from '../../src/lib/thanksgiving/players';
 import { formatPoints, parseLine, vegasProjection } from '../../src/lib/thanksgiving/projection';
-import { answerProblems, answeredCount, compactAnswers, savableAnswers } from '../../src/lib/thanksgiving/questions';
+import {
+  QUESTION_COUNT,
+  QUESTION_SECTIONS,
+  answerProblemDetails,
+  answerProblems,
+  answeredCount,
+  compactAnswers,
+  isQuestionAnswered,
+  savableAnswers,
+} from '../../src/lib/thanksgiving/questions';
 import type { TeamGameStats } from '../../src/lib/thanksgiving/types';
 
 describe('Vegas projected score', () => {
@@ -65,6 +74,43 @@ describe('answers', () => {
     expect(answerProblems({ punts: 2.5 })).not.toEqual([]);
     expect(answerProblems({ sacks: -1 })).not.toEqual([]);
     expect(answerProblems({ longestTd: 110 })).not.toEqual([]);
+  });
+
+  it('uses plain-English labels (no raw field keys) and maps each problem to its question card', () => {
+    const details = answerProblemDetails({ fgs: 25, longestTd: 120, finalAway: 105, finalHome: 10 });
+    expect(details).toEqual([
+      {
+        question: 'final',
+        label: 'Final score',
+        inline: 'Enter whole numbers from 0 to 99.',
+        message: 'Final score must be a whole number 0–99',
+      },
+      {
+        question: 'fgs',
+        label: 'Total field goals made',
+        inline: 'Enter a whole number from 0 to 20.',
+        message: 'Total field goals made must be a whole number 0–20',
+      },
+      {
+        question: 'longestTd',
+        label: 'Yards on the longest TD',
+        inline: 'Enter a whole number from 0 to 109.',
+        message: 'Yards on the longest TD must be a whole number 0–109',
+      },
+    ]);
+    for (const d of details) {
+      expect(d.message).not.toMatch(/\b(finalAway|finalHome|fgs|longestTd)\b/);
+    }
+  });
+
+  it('groups all 15 questions into 3 non-overlapping sections and tracks answered state', () => {
+    const all = QUESTION_SECTIONS.flatMap((s) => [...s.questions]);
+    expect(QUESTION_SECTIONS.map((s) => s.title)).toEqual(['Score & Firsts', 'Game Flow', 'Stat Totals']);
+    expect(all).toHaveLength(QUESTION_COUNT);
+    expect(new Set(all).size).toBe(QUESTION_COUNT);
+    expect(isQuestionAnswered({ finalAway: 21 }, 'final')).toBe(false);
+    expect(isQuestionAnswered({ finalAway: 21, finalHome: 24 }, 'final')).toBe(true);
+    expect(isQuestionAnswered({ punts: 0 }, 'punts')).toBe(true);
   });
 
   it('rejects unknown answers and bad choices', () => {

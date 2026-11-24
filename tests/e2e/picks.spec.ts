@@ -225,4 +225,87 @@ test('completing all 15 picks celebrates and offers seamless jump to next open g
   await expect(page.getByRole('button', { name: /PHI @ DAL/ })).toHaveAttribute('aria-current', 'page');
 });
 
+test('pick form sections, numeric steppers, inline errors, jump helper, and 44px touch targets', async ({ page }) => {
+  await seed(3_600_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await join(page, 'Kyle');
+
+  // 3 lightweight sections with live answered counts.
+  await expect(page.getByTestId('tg-section-score-firsts')).toContainText('Score & Firsts');
+  await expect(page.getByTestId('tg-section-score-firsts')).toContainText('0/4');
+  await expect(page.getByTestId('tg-section-game-flow')).toContainText('Game Flow');
+  await expect(page.getByTestId('tg-section-game-flow')).toContainText('0/5');
+  await expect(page.getByTestId('tg-section-stat-totals')).toContainText('Stat Totals');
+  await expect(page.getByTestId('tg-section-stat-totals')).toContainText('0/6');
+
+  // No jump button at 0/15 with no errors.
+  await expect(page.getByTestId('tg-jump-next')).toHaveCount(0);
+
+  // Steppers on Q10-Q15 start from the rounded NFL average on first tap (punts: 8, longestTd: 32).
+  const puntsGroup = page.getByRole('group', { name: /Total punts/ });
+  await puntsGroup.getByRole('button', { name: 'Increase by 1' }).click();
+  await expect(page.getByLabel('Total punts')).toHaveValue('8');
+  await puntsGroup.getByRole('button', { name: 'Increase by 1' }).click();
+  await expect(page.getByLabel('Total punts')).toHaveValue('9');
+  await puntsGroup.getByRole('button', { name: 'Decrease by 1' }).click();
+  await expect(page.getByLabel('Total punts')).toHaveValue('8');
+
+  // Longest TD supports both ±5 and ±1 steps, seeding at rounded NFL average 32.
+  const longestTdGroup = page.getByRole('group', { name: /Yards on the longest TD/ });
+  await longestTdGroup.getByRole('button', { name: 'Increase by 5' }).click();
+  await expect(page.getByLabel('Yards on the longest TD')).toHaveValue('32');
+  await longestTdGroup.getByRole('button', { name: 'Increase by 5' }).click();
+  await expect(page.getByLabel('Yards on the longest TD')).toHaveValue('37');
+  await longestTdGroup.getByRole('button', { name: 'Decrease by 1' }).click();
+  await expect(page.getByLabel('Yards on the longest TD')).toHaveValue('36');
+  await expect(page.getByTestId('tg-section-stat-totals')).toContainText('2/6');
+
+  // Jump button appears once partially filled and focuses the next unanswered question (Q1).
+  const jump = page.getByTestId('tg-jump-next');
+  await expect(jump).toBeVisible();
+  await expect(jump).toHaveAttribute('data-jump-kind', 'unanswered');
+  await jump.click();
+  await expect(page.getByLabel('CHI final score')).toBeFocused();
+
+  // Out-of-range numeric entry shows plain-English inline error (never raw "fgs" key)
+  // and switches the jump helper to prioritize the invalid question.
+  await page.getByLabel('Total field goals made').fill('25');
+  await expect(page.getByTestId('tg-err-fgs')).toHaveText('Enter a whole number from 0 to 20.');
+  await expect(page.getByTestId('tg-save-status')).toContainText('Total field goals made: enter a whole number from 0 to 20.');
+  await expect(page.getByTestId('tg-save-status')).not.toContainText(/\bfgs\b/);
+  await expect(jump).toHaveAttribute('data-jump-kind', 'error');
+  await jump.click();
+  await expect(page.locator('[data-question="fgs"]')).toContainText('Enter a whole number from 0 to 20.');
+
+  // Fixing the error restores valid status and clears inline error.
+  await page.getByLabel('Total field goals made').fill('4');
+  await expect(page.getByTestId('tg-err-fgs')).toHaveCount(0);
+  await expect(page.getByTestId('tg-save-status')).toContainText('Saved ✓');
+  await expect(page.getByTestId('tg-section-stat-totals')).toContainText('3/6');
+
+  // All mobile interactive controls on the pick form meet the >=44px touch target floor.
+  const tooSmall = await page.evaluate(() => {
+    const selectors = ['.tg-choice button', '.tg-stepper-btn', '.tg-number', '.tg-pick-form .tg-select', '.tg-jump-btn', '.tg-avatar'];
+    const issues: string[] = [];
+    for (const sel of selectors) {
+      for (const el of document.querySelectorAll(sel)) {
+        const r = el.getBoundingClientRect();
+        if (r.height < 43.5 || r.width < 43.5) {
+          issues.push(`${sel}: ${Math.round(r.width)}x${Math.round(r.height)}`);
+        }
+      }
+    }
+    return issues;
+  });
+  expect(tooSmall).toEqual([]);
+
+  // Game 2 has no NFL averages: tapping + on an empty stepper falls back to 0, then increments to 1.
+  await page.getByRole('button', { name: /PHI @ DAL/ }).click();
+  await page.getByRole('group', { name: /Total punts/ }).getByRole('button', { name: 'Increase by 1' }).click();
+  await expect(page.getByLabel('Total punts')).toHaveValue('0');
+  await page.getByRole('group', { name: /Total punts/ }).getByRole('button', { name: 'Increase by 1' }).click();
+  await expect(page.getByLabel('Total punts')).toHaveValue('1');
+});
+
+
 

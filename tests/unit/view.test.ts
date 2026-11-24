@@ -20,6 +20,7 @@ import {
   rowLost,
   rowPoints,
   shortWorth,
+  stepperDefault,
   teamLogo,
   whoCount,
   worthBadge,
@@ -176,6 +177,13 @@ describe('help shown while picking', () => {
   });
   it('no averages, no hint', () => {
     expect(averageHint('punts', null)).toBeNull();
+  });
+  it('steppers start from the rounded NFL average (per game, or per team for longest TD), falling back to 0', () => {
+    expect(stepperDefault('punts', nfl, 30)).toBe(8);
+    expect(stepperDefault('fgs', nfl, 20)).toBe(4);
+    expect(stepperDefault('longestTd', nfl, 109)).toBe(32);
+    expect(stepperDefault('punts', null, 30)).toBe(0);
+    expect(stepperDefault('fgs', { ...nfl, fgs: 15 }, 20)).toBe(20);
   });
 });
 

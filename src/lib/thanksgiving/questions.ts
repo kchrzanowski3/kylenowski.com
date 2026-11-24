@@ -56,6 +56,39 @@ export const ANSWER_KEYS: readonly AnswerKey[] = [
   'sacks',
 ];
 
+export type QuestionKey = 'final' | Exclude<AnswerKey, 'finalAway' | 'finalHome'>;
+
+export const QUESTION_LABELS: Record<QuestionKey, string> = {
+  final: 'Final score',
+  firstTeam: 'Which team scores first',
+  firstScoreType: 'First score type',
+  firstTdScorer: 'First TD scorer',
+  halftime: 'Halftime leader',
+  passTds: 'More passing TDs',
+  rushTds: 'More rushing TDs',
+  missedKick: 'Missed extra point or field goal',
+  leadChange4q: 'Lead change in the 4th quarter',
+  fgs: 'Total field goals made',
+  punts: 'Total punts',
+  tds: 'Total touchdowns',
+  turnovers: 'Combined turnovers',
+  longestTd: 'Yards on the longest TD',
+  sacks: 'Combined sacks',
+};
+
+export const QUESTION_SECTIONS = [
+  { id: 'score-firsts', title: 'Score & Firsts', questions: ['final', 'firstTeam', 'firstScoreType', 'firstTdScorer'] },
+  { id: 'game-flow', title: 'Game Flow', questions: ['halftime', 'passTds', 'rushTds', 'missedKick', 'leadChange4q'] },
+  { id: 'stat-totals', title: 'Stat Totals', questions: ['fgs', 'punts', 'tds', 'turnovers', 'longestTd', 'sacks'] },
+] as const satisfies readonly { id: string; title: string; questions: readonly QuestionKey[] }[];
+
+export interface AnswerProblem {
+  question: QuestionKey | null;
+  label: string;
+  inline: string;
+  message: string;
+}
+
 const SIDES = ['away', 'home'];
 const SIDES_OR_TIE = ['away', 'home', 'tie'];
 const SCORE_TYPES = ['td', 'fg', 'safety'];
@@ -66,40 +99,113 @@ function isInt(v: unknown, lo: number, hi: number): boolean {
 }
 
 /**
+ * Returns structured validation problems with plain-English labels and inline messages for the
+ * pick form. Every question is optional, since a skipped question just scores 0. Mirrors
+ * validAnswers() in firestore.rules.
+ */
+export function answerProblemDetails(a: Record<string, unknown>): AnswerProblem[] {
+  const problems: AnswerProblem[] = [];
+  for (const k of Object.keys(a)) {
+    if (!(ANSWER_KEYS as readonly string[]).includes(k)) {
+      problems.push({
+        question: null,
+        label: 'Unknown answer',
+        inline: `Unknown answer "${k}".`,
+        message: `unknown answer "${k}"`,
+      });
+    }
+  }
+  const has = (k: AnswerKey) => a[k] !== undefined;
+
+  if (has('finalAway') !== has('finalHome')) {
+    problems.push({
+      question: 'final',
+      label: QUESTION_LABELS.final,
+      inline: 'Enter both teams’ scores.',
+      message: 'final score needs both teams',
+    });
+  }
+  const badAway = has('finalAway') && !isInt(a.finalAway, 0, FINAL_SCORE_MAX);
+  const badHome = has('finalHome') && !isInt(a.finalHome, 0, FINAL_SCORE_MAX);
+  if (badAway || badHome) {
+    problems.push({
+      question: 'final',
+      label: QUESTION_LABELS.final,
+      inline: `Enter whole numbers from 0 to ${FINAL_SCORE_MAX}.`,
+      message: `${QUESTION_LABELS.final} must be a whole number 0–${FINAL_SCORE_MAX}`,
+    });
+  }
+  if (has('finalAway') && has('finalHome') && a.finalAway === a.finalHome) {
+    problems.push({
+      question: 'final',
+      label: QUESTION_LABELS.final,
+      inline: 'Final score can’t be a tie.',
+      message: "final score can't be a tie",
+    });
+  }
+  if (has('firstTeam') && !SIDES.includes(a.firstTeam as string)) {
+    problems.push({
+      question: 'firstTeam',
+      label: QUESTION_LABELS.firstTeam,
+      inline: 'Pick one of the two teams.',
+      message: `${QUESTION_LABELS.firstTeam} must be away or home`,
+    });
+  }
+  if (has('firstScoreType') && !SCORE_TYPES.includes(a.firstScoreType as string)) {
+    problems.push({
+      question: 'firstScoreType',
+      label: QUESTION_LABELS.firstScoreType,
+      inline: 'Pick TD, FG, or Safety.',
+      message: `${QUESTION_LABELS.firstScoreType} must be TD, FG or safety`,
+    });
+  }
+  if (has('firstTdScorer') && !(typeof a.firstTdScorer === 'string' && SCORER_RE.test(a.firstTdScorer))) {
+    problems.push({
+      question: 'firstTdScorer',
+      label: QUESTION_LABELS.firstTdScorer,
+      inline: 'Pick a listed player, Other player, or No TD.',
+      message: `${QUESTION_LABELS.firstTdScorer} must be a player, other or none`,
+    });
+  }
+  for (const k of ['halftime', 'passTds', 'rushTds'] as const) {
+    if (has(k) && !SIDES_OR_TIE.includes(a[k] as string)) {
+      problems.push({
+        question: k,
+        label: QUESTION_LABELS[k],
+        inline: 'Pick either team or Tie.',
+        message: `${QUESTION_LABELS[k]} must be away, home or tie`,
+      });
+    }
+  }
+  for (const k of ['missedKick', 'leadChange4q'] as const) {
+    if (has(k) && typeof a[k] !== 'boolean') {
+      problems.push({
+        question: k,
+        label: QUESTION_LABELS[k],
+        inline: 'Pick Yes or No.',
+        message: `${QUESTION_LABELS[k]} must be yes or no`,
+      });
+    }
+  }
+  for (const q of NUMBER_QUESTIONS) {
+    if (has(q.key) && !isInt(a[q.key], 0, q.max)) {
+      problems.push({
+        question: q.key,
+        label: q.label,
+        inline: `Enter a whole number from 0 to ${q.max}.`,
+        message: `${q.label} must be a whole number 0–${q.max}`,
+      });
+    }
+  }
+  return problems;
+}
+
+/**
  * Returns a list of problems with a set of answers (empty when valid). Every question is optional,
  * since a skipped question just scores 0. Mirrors validAnswers() in firestore.rules.
  */
 export function answerProblems(a: Record<string, unknown>): string[] {
-  const problems: string[] = [];
-  for (const k of Object.keys(a)) {
-    if (!(ANSWER_KEYS as readonly string[]).includes(k)) problems.push(`unknown answer "${k}"`);
-  }
-  const has = (k: AnswerKey) => a[k] !== undefined;
-
-  if (has('finalAway') !== has('finalHome')) problems.push('final score needs both teams');
-  for (const k of ['finalAway', 'finalHome'] as const) {
-    if (has(k) && !isInt(a[k], 0, FINAL_SCORE_MAX)) problems.push(`${k} must be a whole number 0–${FINAL_SCORE_MAX}`);
-  }
-  if (has('finalAway') && has('finalHome') && a.finalAway === a.finalHome) {
-    problems.push("final score can't be a tie");
-  }
-  if (has('firstTeam') && !SIDES.includes(a.firstTeam as string)) problems.push('firstTeam must be away or home');
-  if (has('firstScoreType') && !SCORE_TYPES.includes(a.firstScoreType as string)) {
-    problems.push('firstScoreType must be td, fg or safety');
-  }
-  if (has('firstTdScorer') && !(typeof a.firstTdScorer === 'string' && SCORER_RE.test(a.firstTdScorer))) {
-    problems.push('firstTdScorer must be a player, other or none');
-  }
-  for (const k of ['halftime', 'passTds', 'rushTds'] as const) {
-    if (has(k) && !SIDES_OR_TIE.includes(a[k] as string)) problems.push(`${k} must be away, home or tie`);
-  }
-  for (const k of ['missedKick', 'leadChange4q'] as const) {
-    if (has(k) && typeof a[k] !== 'boolean') problems.push(`${k} must be yes or no`);
-  }
-  for (const q of NUMBER_QUESTIONS) {
-    if (has(q.key) && !isInt(a[q.key], 0, q.max)) problems.push(`${q.key} must be a whole number 0–${q.max}`);
-  }
-  return problems;
+  return answerProblemDetails(a).map((p) => p.message);
 }
 
 /**
@@ -126,6 +232,12 @@ export function compactAnswers(a: Record<string, unknown>): Answers {
     out[k] = v;
   }
   return out as Answers;
+}
+
+/** Whether a single question has a value entered (final score requires both teams). */
+export function isQuestionAnswered(a: Answers, key: QuestionKey): boolean {
+  if (key === 'final') return a.finalAway !== undefined && a.finalHome !== undefined;
+  return a[key] !== undefined;
 }
 
 /** How many of the 15 questions are answered (final score counts once). */

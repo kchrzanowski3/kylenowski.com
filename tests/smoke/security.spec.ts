@@ -19,8 +19,10 @@ test.describe('HTTP security headers and CSP', () => {
       expect(res.status()).toBe(200);
       const headers = res.headers();
 
-      expect(headers['strict-transport-security']).toContain('max-age=31536000');
-      expect(headers['strict-transport-security']).toContain('includeSubDomains');
+      const hsts = headers['strict-transport-security'] ?? '';
+      const maxAge = Number(hsts.match(/max-age=(\d+)/)?.[1] ?? 0);
+      expect(maxAge).toBeGreaterThanOrEqual(31536000);
+      expect(hsts).toContain('includeSubDomains');
       expect(headers['x-content-type-options']).toBe('nosniff');
       expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
       expect(headers['permissions-policy']).toContain('camera=()');

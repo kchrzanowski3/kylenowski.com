@@ -140,13 +140,20 @@ test('join, pick, sign in on another phone, lock at kickoff, reveal', async ({ b
     await expect(picks).toBeVisible({ timeout: 15_000 });
     const player = page.getByTestId('tg-reveal-player');
     await expect(player.locator('option')).toHaveCount(2, { timeout: 10_000 });
-    // It starts on you (Carol hasn't joined, so she starts on the first player).
+    // It starts on you (Carol hasn't joined, so she starts on the game's leader, or the first player).
     await expect(player.locator('option:checked')).toHaveText(page === bob ? 'Bob (you)' : page === alice ? 'Alice (you)' : 'Alice');
     const aliceValue = await player.locator('option', { hasText: 'Alice' }).getAttribute('value');
     await player.selectOption(aliceValue!);
     await expect(picks).toContainText('CHI 20 – DET 27');
     await expect(picks).toContainText('Jahmyr Gibbs');
   }
+
+  // Someone who joins after kickoff, with no picks for this game, still starts on themselves.
+  const dan = await (await browser.newContext()).newPage();
+  await join(dan, 'Dan');
+  await dan.getByRole('button', { name: /CHI @ DET/ }).click();
+  await expect(dan.getByTestId('tg-reveal-player').locator('option:checked')).toHaveText('Dan (you)');
+  await expect(dan.getByTestId('tg-reveal')).toContainText('No picks for this game.');
 
   // A phone opening the page now lands on the game being played, not the next one to pick.
   const late = await (await browser.newContext()).newPage();

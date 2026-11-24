@@ -177,8 +177,14 @@ Kept light on text: the page shows state with icons, not instructions.
   follows along as games kick off until you choose a tab yourself.
 - **Game header:** logos and team names, and a chip with the lock and the time left until kickoff ("Locked"
   while it's on, "Final" once it's over), then the kickoff time and TV.
-- **Picks, from kickoff:** a list of the players who made picks for the game (starting on you), and the chosen
-  player's 15 answers with the points each is earning and their total for the game.
+- **Picks, from kickoff:** a list of players: you first whenever you're signed in (even with no picks for the
+  game: "No picks for this game"), then everyone who made picks. It starts on you; signed out, on the game's
+  leader. It shows the chosen player's 15 answers with the points each is earning and their total for the game.
+- **Who's getting points:** the per-game scoreboard as a compact list under the picks, one row per category:
+  a short name ("Punts", "Closest score"), its worth as a number badge ("3", "1", "1/5"), the value so far,
+  who's right as a count ("Ann", "You", "You + 2", "6 players") and a mark: a green check once the category is
+  final, a hollow dot while it could still change. Rows where you're right are tinted green. Tapping a row
+  shows the full category name, worth, value, the names of who's right and the status.
 - **Standings:** a pulsing dot while points are projected (live); projected points also look different from
   final ones. A chevron on each row opens that player's points per game.
 

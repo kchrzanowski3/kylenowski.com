@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import type { Answers } from '../../lib/thanksgiving/questions';
 import type { GameScore } from '../../lib/thanksgiving/scoring';
-import { answerText, defaultPickerPlayer, rowPoints, type Game, type Pick, type Player } from '../../lib/thanksgiving/view';
+import { answerText, defaultPickerPlayer, pickerPlayers, rowPoints, type Game, type Pick, type Player } from '../../lib/thanksgiving/view';
 
 const ROWS: { key: keyof Answers | 'final'; label: string }[] = [
   { key: 'final', label: 'Final score' },
@@ -36,14 +36,13 @@ export function PlayerPicks({ game, picks, players, me, score }: Props) {
   const [chosen, setChosen] = useState<string | null>(null);
   if (picks === null) return <p className="muted">Loading picks…</p>;
   const names = new Map(players.map((p) => [p.id, p.name]));
-  const withPicks = picks
-    .filter((p) => names.has(p.playerId))
-    .sort((x, y) => (x.playerId === me?.id ? -1 : y.playerId === me?.id ? 1 : names.get(x.playerId)!.localeCompare(names.get(y.playerId)!)));
-  if (withPicks.length === 0) return <p className="muted">No picks for this game.</p>;
+  const byPlayer = new Map(picks.filter((p) => names.has(p.playerId)).map((p) => [p.playerId, p.answers]));
+  const others = [...byPlayer.keys()].sort((a, b) => names.get(a)!.localeCompare(names.get(b)!));
+  const ids = pickerPlayers(others, me?.id ?? null);
+  if (ids.length === 0) return <p className="muted">No picks for this game.</p>;
 
-  const ids = withPicks.map((p) => p.playerId);
-  const current = chosen && ids.includes(chosen) ? chosen : defaultPickerPlayer(ids, me?.id ?? null)!;
-  const pick = withPicks.find((p) => p.playerId === current)!;
+  const current = chosen && ids.includes(chosen) ? chosen : defaultPickerPlayer(ids, me?.id ?? null, score?.totals)!;
+  const answers = byPlayer.get(current) ?? null;
   const live = score?.status === 'live';
   const scored = !!score && score.status !== 'pre';
   const total = score?.totals[current] ?? 0;
@@ -58,9 +57,9 @@ export function PlayerPicks({ game, picks, players, me, score }: Props) {
           value={current}
           onChange={(e) => setChosen(e.target.value)}
         >
-          {withPicks.map((p) => (
-            <option key={p.playerId} value={p.playerId}>
-              {names.get(p.playerId)}{p.playerId === me?.id ? ' (you)' : ''}
+          {ids.map((id) => (
+            <option key={id} value={id}>
+              {names.get(id) ?? me?.name}{id === me?.id ? ' (you)' : ''}
             </option>
           ))}
         </select>
@@ -70,9 +69,12 @@ export function PlayerPicks({ game, picks, players, me, score }: Props) {
           </strong>
         )}
       </div>
+      {answers === null ? (
+        <p className="muted">No picks for this game.</p>
+      ) : (
       <ul className="tg-pick-list">
         {ROWS.map((r) => {
-          const text = answerText(game, r.key, pick.answers);
+          const text = answerText(game, r.key, answers);
           const pts = scored ? rowPoints(score!.categories, r.key, current) : 0;
           return (
             <li key={r.key} className={pts > 0 ? 'tg-pick-row tg-pick-hit' : 'tg-pick-row'}>
@@ -83,6 +85,7 @@ export function PlayerPicks({ game, picks, players, me, score }: Props) {
           );
         })}
       </ul>
+      )}
     </section>
   );
 }

@@ -1,6 +1,7 @@
 // Game data as the page sees it, plus display helpers shared by the components.
 
 import type { Answers } from './questions';
+import type { CategoryKey } from './scoring';
 import type { Line, Projection, ScorerOption, Side, TeamAverages, TeamInfo } from './types';
 
 export interface Game {
@@ -146,7 +147,55 @@ export function rowPoints(
   return categories.filter((c) => keys.includes(c.key)).reduce((sum, c) => sum + (c.points[playerId] ?? 0), 0);
 }
 
-/** Who the player picker starts on: you if you're in the list, else the first player. */
-export function defaultPickerPlayer(ids: readonly string[], meId: string | null): string | null {
-  return meId && ids.includes(meId) ? meId : (ids[0] ?? null);
+/**
+ * The player picker's list: you first whenever you're signed in (even with no picks for the game),
+ * then everyone else who made picks.
+ */
+export function pickerPlayers(withPicks: readonly string[], meId: string | null): string[] {
+  return meId ? [meId, ...withPicks.filter((id) => id !== meId)] : [...withPicks];
+}
+
+/** Who the player picker starts on: you; signed out, the game's leader; else the first player. */
+export function defaultPickerPlayer(ids: readonly string[], meId: string | null, totals: Record<string, number> = {}): string | null {
+  if (meId && ids.includes(meId)) return meId;
+  const leader = [...ids].sort((a, b) => (totals[b] ?? 0) - (totals[a] ?? 0))[0];
+  return leader !== undefined && (totals[leader] ?? 0) > 0 ? leader : (ids[0] ?? null);
+}
+
+// --- "Who's getting points", as a compact list ---------------------------------------------
+
+/** Short names for the scoring categories (docs/thanksgiving-spec.md, "Per-game scoreboard"). */
+export const CATEGORY_SHORT: Record<CategoryKey, string> = {
+  finalClosest: 'Closest score',
+  finalWinner: 'Winner',
+  finalWithin15: 'Within 15',
+  firstTeam: 'First to score',
+  firstScoreType: 'First score type',
+  firstTdScorer: 'First TD scorer',
+  halftime: 'Halftime leader',
+  passTds: 'More pass TDs',
+  rushTds: 'More rush TDs',
+  missedKick: 'Missed kick',
+  leadChange4q: '4Q lead change',
+  fgs: 'FGs',
+  punts: 'Punts',
+  tds: 'TDs',
+  turnovers: 'Turnovers',
+  longestTd: 'Longest TD',
+  sacks: 'Sacks',
+};
+
+/** A category's worth as numbers only: "1 each" → "1", "1 (5 for safety)" → "1/5". */
+export function shortWorth(worth: string): string {
+  const nums = worth.match(/\d+/g) ?? [];
+  return nums.join('/');
+}
+
+/** Who's right, as a count: "—", one name (or "You"), "You + 5", "6 players". */
+export function whoCount(ids: readonly string[], names: ReadonlyMap<string, string>, meId: string | null): string {
+  const known = ids.filter((id) => names.has(id));
+  if (known.length === 0) return '—';
+  const mine = meId !== null && known.includes(meId);
+  if (known.length === 1) return mine ? 'You' : names.get(known[0])!;
+  return mine ? `You + ${known.length - 1}` : `${known.length} players`;
 }

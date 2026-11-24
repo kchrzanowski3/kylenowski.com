@@ -86,7 +86,12 @@ test('admin signs in by emailed link, fixes a stat, and the leaderboard moves', 
   // The viewer's game-1 scoreboard shows it too.
   await viewer.getByRole('button', { name: /CHI @ DET/ }).click();
   await expect(viewer.getByTestId('tg-livescore')).toContainText(/CHI 10\s*–\s*14 DET/);
-  await expect(viewer.getByTestId('tg-scoreboard').getByRole('row', { name: /^Total punts/ })).toContainText('Bob');
+  // "Who's getting points": Bob is right on punts, now final-or-live with a mark; tap for the details.
+  const punts = viewer.getByTestId('tg-cat-punts');
+  await expect(punts).toContainText('Bob');
+  await expect(punts).toContainText('7');
+  await punts.getByRole('button').click();
+  await expect(punts).toContainText('Total punts');
 
   // Wide tables scroll inside their own box; the page itself never scrolls sideways on a phone.
   for (const p of [admin, viewer]) {

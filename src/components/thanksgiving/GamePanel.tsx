@@ -113,7 +113,7 @@ export function GamePanel({ clients, game, me, players, now, result, phase }: Pr
       )}
       {!locked && !me && <p className="muted">Sign in above to make your picks.</p>}
       {locked && (
-        <Scoreboard game={game} result={result} players={players}>
+        <Scoreboard game={game} result={result} players={players} me={me}>
           <PlayerPicks game={game} picks={everyone} players={players} me={me} score={result?.score ?? null} />
         </Scoreboard>
       )}

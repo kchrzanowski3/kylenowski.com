@@ -159,23 +159,45 @@
 .tg-q {
   border: 1px solid var(--tg-line);
   border-radius: 0.75rem;
-  padding: 0.75rem 1rem 0.9rem;
+  padding: 0.85rem 1rem 0.95rem;
   margin: 0;
   min-width: 0;
+  max-width: 100%;
 }
-.tg-q legend { font-weight: 600; padding: 0 0.25rem; }
+.tg-q-legend {
+  float: left;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0;
+  margin: 0 0 0.2rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.tg-q-legend + * { clear: both; }
+.tg-q-title { min-width: 0; overflow-wrap: break-word; }
 .tg-q p { margin: 0.25rem 0; }
 .tg-q-n {
   display: inline-grid;
   place-items: center;
+  flex-shrink: 0;
   width: 1.5rem;
   height: 1.5rem;
   border-radius: 50%;
   background: var(--tg-soft);
   border: 1px solid var(--tg-line);
   font-size: 0.8rem;
+  line-height: 1;
 }
-.tg-q-pts { font-weight: 400; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.tg-q .tg-q-pts {
+  margin: 0 0 0.45rem;
+  font-weight: 400;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--muted);
+  overflow-wrap: break-word;
+}
 .tg-help { color: var(--muted); }
 
 .tg-choice { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.4rem; }

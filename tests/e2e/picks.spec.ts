@@ -176,3 +176,20 @@ test('join, pick, sign in on another phone, lock at kickoff, reveal', async ({ b
 
   expect(csp).toEqual([]);
 });
+
+test('pick form fits mobile viewports without horizontal overflow', async ({ page }) => {
+  await seed(3_600_000);
+  await join(page, 'Kyle');
+  await expect(page.getByRole('group', { name: /Final score/ })).toBeVisible();
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    const overflow = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      maxCardRight: Math.max(...[...document.querySelectorAll('.tg-q')].map((el) => Math.ceil(el.getBoundingClientRect().right))),
+    }));
+    expect(overflow.scrollWidth, `page overflow at ${width}px`).toBeLessThanOrEqual(width);
+    expect(overflow.maxCardRight, `question card overflow at ${width}px`).toBeLessThanOrEqual(width);
+  }
+});
+

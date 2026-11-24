@@ -85,7 +85,7 @@ test('admin signs in by emailed link, fixes a stat, and the leaderboard moves', 
 
   // The viewer's game-1 scoreboard shows it too.
   await viewer.getByRole('button', { name: /CHI @ DET/ }).click();
-  await expect(viewer.getByTestId('tg-livescore')).toContainText('CHI 10 – DET 14');
+  await expect(viewer.getByTestId('tg-livescore')).toContainText(/CHI 10\s*–\s*14 DET/);
   await expect(viewer.getByTestId('tg-scoreboard').getByRole('row', { name: /^Total punts/ })).toContainText('Bob');
 
   // Wide tables scroll inside their own box; the page itself never scrolls sideways on a phone.

@@ -93,3 +93,60 @@ export function answerText(game: Game, key: keyof Answers | 'final', a: Answers)
     }
   }
 }
+
+// --- Game tabs and the player picker (docs/thanksgiving-spec.md, "Page layout") ---------------
+
+/** Where a game is: open for picks, locked and being played (live), or over (final). */
+export type GamePhase = 'open' | 'live' | 'final';
+
+/** A game's phase from its lock time and its published result's state ('pre' | 'in' | 'post'). */
+export function gamePhase(kickoff: number, resultState: string | null | undefined, now: number): GamePhase {
+  if (now < kickoff) return 'open';
+  return resultState === 'post' ? 'final' : 'live';
+}
+
+/** The game the page opens on: the one being played, else the next to kick off, else the last. */
+export function autoGameId(games: { id: string; phase: GamePhase }[]): string | null {
+  return (games.find((g) => g.phase === 'live') ?? games.find((g) => g.phase === 'open') ?? games[games.length - 1])?.id ?? null;
+}
+
+/** ESPN's logo for a team, by its abbreviation (CIN, WSH, ...). */
+export function teamLogo(abbr: string): string {
+  return `https://a.espncdn.com/i/teamlogos/nfl/500/${encodeURIComponent(abbr.toLowerCase())}.png`;
+}
+
+/** The scoring categories behind each row of a player's picks; the final score is worth three. */
+export const PICK_ROW_CATEGORIES: Record<keyof Answers | 'final', string[]> = {
+  final: ['finalClosest', 'finalWinner', 'finalWithin15'],
+  finalAway: [],
+  finalHome: [],
+  firstTeam: ['firstTeam'],
+  firstScoreType: ['firstScoreType'],
+  firstTdScorer: ['firstTdScorer'],
+  halftime: ['halftime'],
+  passTds: ['passTds'],
+  rushTds: ['rushTds'],
+  missedKick: ['missedKick'],
+  leadChange4q: ['leadChange4q'],
+  fgs: ['fgs'],
+  punts: ['punts'],
+  tds: ['tds'],
+  turnovers: ['turnovers'],
+  longestTd: ['longestTd'],
+  sacks: ['sacks'],
+};
+
+/** A player's points on one row of their picks, from the game's categories. */
+export function rowPoints(
+  categories: readonly { key: string; points: Record<string, number> }[],
+  row: keyof Answers | 'final',
+  playerId: string,
+): number {
+  const keys = PICK_ROW_CATEGORIES[row];
+  return categories.filter((c) => keys.includes(c.key)).reduce((sum, c) => sum + (c.points[playerId] ?? 0), 0);
+}
+
+/** Who the player picker starts on: you if you're in the list, else the first player. */
+export function defaultPickerPlayer(ids: readonly string[], meId: string | null): string | null {
+  return meId && ids.includes(meId) ? meId : (ids[0] ?? null);
+}

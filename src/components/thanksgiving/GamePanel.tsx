@@ -5,9 +5,10 @@ import { etDateTime } from '../../lib/thanksgiving/config';
 import { isLocked } from '../../lib/thanksgiving/kickoff';
 import { formatPoints } from '../../lib/thanksgiving/projection';
 import type { Answers } from '../../lib/thanksgiving/questions';
-import { countdown, type Game, type Pick, type Player } from '../../lib/thanksgiving/view';
+import { countdown, type Game, type GamePhase, type Pick, type Player } from '../../lib/thanksgiving/view';
+import { LockIcon, TeamLogo } from './icons';
 import { PickForm } from './PickForm';
-import { RevealTable } from './RevealTable';
+import { PlayerPicks } from './PlayerPicks';
 import { Scoreboard, type GameResult } from './Scoreboard';
 
 interface Props {
@@ -17,9 +18,10 @@ interface Props {
   players: Player[];
   now: number;
   result: GameResult | null;
+  phase: GamePhase;
 }
 
-export function GamePanel({ clients, game, me, players, now, result }: Props) {
+export function GamePanel({ clients, game, me, players, now, result, phase }: Props) {
   const locked = isLocked(game.kickoff, now);
   // Your saved picks, tagged with whose they are, so the form never starts from another sign-in's
   // (or a not-yet-loaded) state.
@@ -82,15 +84,20 @@ export function GamePanel({ clients, game, me, players, now, result }: Props) {
   return (
     <section className="tg-game" aria-labelledby={`tg-game-${game.id}`}>
       <header className="tg-game-head">
-        <h2 id={`tg-game-${game.id}`}>
-          {game.away.shortName} <span className="muted">@</span> {game.home.shortName}
+        <h2 id={`tg-game-${game.id}`} className="tg-matchup">
+          <span className="tg-matchup-team"><TeamLogo team={game.away} size={40} /> {game.away.shortName}</span>
+          <span className="muted">@</span>
+          <span className="tg-matchup-team"><TeamLogo team={game.home} size={40} /> {game.home.shortName}</span>
         </h2>
-        <p className="muted">
-          Game {game.order} · {etDateTime(game.kickoff)}
-          {game.tv ? ` · ${game.tv}` : ''}
-        </p>
-        <p className={locked ? 'tg-status tg-status-locked' : 'tg-status'} data-testid="tg-lock-status">
-          {locked ? 'Picks are locked and revealed.' : `Picks lock at kickoff, in ${countdown(game.kickoff - now)}.`}
+        <p className="tg-game-meta">
+          <span className={`tg-phase tg-phase-${phase}`} data-testid="tg-lock-status" data-phase={phase}>
+            <LockIcon phase={phase} size={14} />
+            {phase === 'open' ? countdown(game.kickoff - now) : phase === 'live' ? 'Locked' : 'Final'}
+          </span>
+          <span className="muted">
+            {etDateTime(game.kickoff)}
+            {game.tv ? ` · ${game.tv}` : ''}
+          </span>
         </p>
         {line && projection && (
           <p className="tg-vegas">
@@ -104,9 +111,12 @@ export function GamePanel({ clients, game, me, players, now, result }: Props) {
       {!locked && me && mine?.playerId === me.id && (
         <PickForm key={me.id} clients={clients} game={game} me={me} saved={mine.answers} now={now} />
       )}
-      {!locked && !me && <p className="muted">Sign in above to make your picks. Everyone's picks are shown here at kickoff.</p>}
-      {locked && <Scoreboard game={game} result={result} players={players} />}
-      {locked && <RevealTable game={game} picks={everyone} players={players} me={me} />}
+      {!locked && !me && <p className="muted">Sign in above to make your picks.</p>}
+      {locked && (
+        <Scoreboard game={game} result={result} players={players}>
+          <PlayerPicks game={game} picks={everyone} players={players} me={me} score={result?.score ?? null} />
+        </Scoreboard>
+      )}
     </section>
   );
 }

@@ -105,7 +105,8 @@ The most anyone can score in one game is **37**, if they pick a safety correctly
   checked against the server's clock. It doesn't wait for ESPN to show the game as started.
 - **A lock never reopens.** Once a game's lock time has passed, moving its kickoff later (by the feed or by the
   admin) doesn't reopen picks, since everyone's picks have already been revealed.
-- Other players' picks are **hidden until kickoff**, then shown to everyone side by side.
+- Other players' picks are **hidden until kickoff**. From kickoff anyone can choose a player from a list and see
+  that player's picks for the game (see "Page layout").
 - A player who skips a question gets 0 for it. A player who skips a whole game can still win overall.
 
 ## Help shown while picking
@@ -161,8 +162,25 @@ One view per game, with a row for **each way to score points**:
 | Longest TD yards | 3 | names | live / final |
 | Combined sacks | 3 | names | live / final |
 
-Plus each player's points for that game, and that game's winner once it's over: the most points in that
-game, with ties as **co-winners** (no tiebreaker).
+Plus that game's winner once it's over: the most points in that game, with ties as **co-winners** (no
+tiebreaker). Each player's points for the game are shown with their picks (see "Page layout").
+
+### Page layout
+Kept light on text: the page shows state with icons, not instructions.
+- **Account menu:** once signed in, a round icon with your initial, top right next to the heading, opens a menu
+  with your name, "Add a PIN" / "Change PIN" and "Switch player". Signed out, the sign-in card is on the page.
+- **Game tabs**, one per game in kickoff order, each with both teams' logos (from ESPN), the matchup, and a lock:
+  an **open lock** while the game is open for picks, a **green lock** from kickoff while it's being played, and a
+  **grey lock** once it's final. Signed in, each tab also has a **progress bar** of how many of the 15 questions
+  you've answered for that game (full: green).
+- **Which game opens:** the game being played, else the next game to kick off, else the last game. The page
+  follows along as games kick off until you choose a tab yourself.
+- **Game header:** logos and team names, and a chip with the lock and the time left until kickoff ("Locked"
+  while it's on, "Final" once it's over), then the kickoff time and TV.
+- **Picks, from kickoff:** a list of the players who made picks for the game (starting on you), and the chosen
+  player's 15 answers with the points each is earning and their total for the game.
+- **Standings:** a pulsing dot while points are projected (live); projected points also look different from
+  final ones. A chevron on each row opens that player's points per game.
 
 ### Live scoring
 - During a game, standings count **projected points**: each category is scored as if the game ended right

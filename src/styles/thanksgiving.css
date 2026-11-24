@@ -75,28 +75,68 @@
 }
 .tg-primary:disabled { opacity: 0.6; cursor: default; }
 
-.tg-account p { margin: 0; display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; align-items: baseline; }
-.tg-account-actions { display: inline-flex; gap: 1rem; }
+.tg-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
 
-.tg-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+/* Title row with the account menu on the right */
+.tg-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.tg-titlebar h1 { margin: 0; }
+.tg-account-inline { display: flex; justify-content: flex-end; }
+.tg-menu { position: relative; }
+.tg-avatar {
+  width: 2.5rem; height: 2.5rem; border-radius: 999px; border: 2px solid var(--accent);
+  background: var(--tg-soft); color: var(--fg); font: inherit; font-weight: 800; font-size: 1.1rem; cursor: pointer;
+}
+.tg-menu-panel {
+  position: absolute; right: 0; top: calc(100% + 0.4rem); z-index: 10; min-width: 13rem;
+  display: grid; gap: 0.25rem; padding: 0.6rem; border: 1px solid var(--tg-line); border-radius: 0.75rem;
+  background: var(--bg); box-shadow: 0 8px 24px color-mix(in srgb, var(--fg) 18%, transparent);
+}
+.tg-menu-name { margin: 0 0 0.25rem; padding: 0.25rem 0.5rem; font-weight: 700; }
+.tg-menu-item {
+  text-align: left; padding: 0.55rem 0.5rem; border: 0; border-radius: 0.5rem; background: none; color: var(--fg); cursor: pointer;
+}
+.tg-menu-item:hover, .tg-menu-item:focus-visible { background: var(--tg-soft); }
+.tg-menu-form { padding: 0.25rem 0.5rem; }
+
+/* Game tabs: logos, lock state and your pick progress */
+.tg-tabs { display: grid; grid-template-columns: repeat(auto-fill, minmax(6.25rem, 1fr)); gap: 0.5rem; }
 .tg-tab {
   border: 1px solid var(--tg-line);
   border-radius: 0.6rem;
-  padding: 0.5rem;
+  padding: 0.5rem 0.5rem 0.45rem;
   background: var(--bg);
   color: var(--fg);
   cursor: pointer;
   display: grid;
-  gap: 0.1rem;
+  justify-items: center;
+  gap: 0.25rem;
 }
 .tg-tab[aria-current='page'] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.tg-tab-teams { font-weight: 700; }
-.tg-tab-status { font-size: 0.8rem; color: var(--muted); }
+.tg-tab-final { opacity: 0.7; }
+.tg-tab-logos { display: flex; gap: 0.3rem; min-height: 26px; }
+.tg-tab-teams { font-weight: 700; font-size: 0.85rem; }
+.tg-logo { display: inline-block; object-fit: contain; vertical-align: middle; }
+.tg-lock { display: inline-block; vertical-align: -0.15em; }
+.tg-lock-open { color: var(--muted); }
+.tg-lock-live { color: var(--tg-ok); }
+.tg-lock-final { color: color-mix(in srgb, var(--muted) 70%, transparent); }
+.tg-progress { width: 100%; height: 4px; border-radius: 999px; background: var(--tg-line); overflow: hidden; }
+.tg-progress-fill { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width 0.3s; }
+.tg-progress-full { background: var(--tg-ok); }
 
-.tg-game-head h2 { margin: 0; font-size: 1.4rem; }
-.tg-game-head p { margin: 0.25rem 0; }
-.tg-status { font-weight: 600; }
-.tg-status-locked { color: var(--tg-bad); }
+.tg-game-head h2 { margin: 0; font-size: 1.3rem; }
+.tg-matchup { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.tg-matchup-team { display: inline-flex; align-items: center; gap: 0.4rem; }
+.tg-game-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0.4rem 0; font-size: 0.9rem; }
+.tg-phase {
+  display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.1rem 0.55rem; border-radius: 999px;
+  border: 1px solid var(--tg-line); font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.tg-phase-live { border-color: var(--tg-ok); color: var(--tg-ok); }
+.tg-phase-final { color: var(--muted); }
 .tg-vegas { font-size: 0.95rem; }
 
 .tg-picks { display: grid; gap: 0.75rem; margin-top: 1rem; }
@@ -174,24 +214,51 @@
 .tg-reveal .tg-me { color: var(--accent); }
 
 /* Standings and scoreboards */
-.tg-standings h2 { margin: 0 0 0.5rem; font-size: 1.3rem; }
-.tg-projected-note { font-size: 0.9rem; color: var(--muted); margin: 0 0 0.5rem; }
+.tg-standings h2 { margin: 0 0 0.5rem; font-size: 1.3rem; display: flex; align-items: center; gap: 0.5rem; }
+.tg-live-dot {
+  width: 0.55rem; height: 0.55rem; border-radius: 999px; background: var(--tg-ok);
+  animation: tg-pulse 1.6s ease-in-out infinite;
+}
+@keyframes tg-pulse { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .tg-live-dot { animation: none; } }
 .tg-projected { font-style: italic; color: var(--muted); }
 .tg-champion { font-weight: 700; font-size: 1.05rem; margin: 0.25rem 0 0.75rem; }
 .tg-board { list-style: none; padding: 0; margin: 0; border: 1px solid var(--tg-line); border-radius: 0.75rem; overflow: hidden; }
 .tg-board > li + li { border-top: 1px solid var(--tg-line); }
 .tg-board > li.tg-me { background: var(--tg-soft); }
 .tg-board-row {
-  display: grid; grid-template-columns: 2rem 1fr auto; gap: 0.5rem; align-items: center;
+  display: grid; grid-template-columns: 2rem 1fr auto auto; gap: 0.5rem; align-items: center;
   width: 100%; padding: 0.6rem 0.9rem; border: 0; background: none; color: var(--fg); text-align: left; cursor: pointer; font: inherit;
 }
 .tg-rank { font-weight: 700; color: var(--muted); }
 .tg-points { font-weight: 700; font-size: 1.1rem; }
-.tg-board-games { margin: 0; padding: 0 0.9rem 0.6rem 3.4rem; font-size: 0.9rem; }
+.tg-board-games { list-style: none; margin: 0; padding: 0 0.9rem 0.6rem 3.4rem; font-size: 0.9rem; display: grid; gap: 0.2rem; }
+.tg-board-games li { display: flex; align-items: center; gap: 0.3rem; }
+.tg-board-games strong { margin-left: auto; }
+.tg-chevron { color: var(--muted); transition: transform 0.15s; }
+.tg-chevron-open { transform: rotate(90deg); }
 .tg-scoreboard { display: grid; gap: 0.5rem; margin-top: 1rem; }
-.tg-livescore { font-size: 1.2rem; margin: 0; }
-.tg-game-totals { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; }
-.tg-chip-static { border: 1px solid var(--tg-line); border-radius: 999px; padding: 0.2rem 0.7rem; font-size: 0.9rem; }
+.tg-livescore { font-size: 1.3rem; margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.tg-livescore-team { display: inline-flex; align-items: center; gap: 0.35rem; }
+.tg-clock { font-size: 0.85rem; color: var(--muted); }
+.tg-clock-live { color: var(--tg-ok); font-weight: 700; }
+
+/* One player's picks */
+.tg-picks { display: grid; gap: 0.5rem; margin: 0.5rem 0; }
+.tg-picks-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.tg-picks-head .tg-select { flex: 1 1 auto; min-width: 0; }
+.tg-picks-head .tg-points { white-space: nowrap; }
+.tg-select {
+  font: inherit; font-weight: 700; padding: 0.45rem 0.6rem; border-radius: 0.5rem;
+  border: 1px solid var(--tg-line); background: var(--bg); color: var(--fg); max-width: 100%;
+}
+.tg-pick-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--tg-line); border-radius: 0.75rem; overflow: hidden; }
+.tg-pick-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) 2.5rem; gap: 0.5rem; padding: 0.5rem 0.75rem; align-items: center; font-size: 0.92rem; }
+.tg-pick-row + .tg-pick-row { border-top: 1px solid var(--tg-line); }
+.tg-pick-q { color: var(--muted); }
+.tg-pick-a { font-weight: 600; overflow-wrap: anywhere; }
+.tg-pick-pts { text-align: right; font-weight: 800; color: var(--tg-ok); }
+.tg-pick-hit { background: color-mix(in srgb, var(--tg-ok) 10%, transparent); }
 .tg-categories td, .tg-categories th { white-space: normal; }
 .tg-badge { font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 999px; border: 1px solid var(--tg-line); }
 .tg-badge-final { border-color: var(--tg-ok); color: var(--tg-ok); }

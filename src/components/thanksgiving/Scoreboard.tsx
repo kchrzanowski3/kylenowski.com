@@ -1,6 +1,8 @@
+import type { ReactNode } from 'react';
 import type { GameScore } from '../../lib/thanksgiving/scoring';
 import type { GameStats } from '../../lib/thanksgiving/stats';
 import type { Game, Player } from '../../lib/thanksgiving/view';
+import { TeamLogo } from './icons';
 
 export interface GameResult {
   stats: GameStats;
@@ -17,36 +19,36 @@ export function gameClock(s: GameStats): string {
 }
 
 /** Per-game scoreboard (docs/thanksgiving-spec.md, "Standings → Per-game scoreboard"). */
-export function Scoreboard({ game, result, players }: { game: Game; result: GameResult | null; players: Player[] }) {
-  if (!result || result.score.status === 'pre') return <p className="muted">The scoreboard starts when the feed shows the game under way.</p>;
+/** `children` (the player picker) goes between the score and the categories table. */
+export function Scoreboard({ game, result, players, children }: { game: Game; result: GameResult | null; players: Player[]; children?: ReactNode }) {
+  if (!result || result.score.status === 'pre') {
+    return (
+      <>
+        <p className="muted">The scoreboard starts when the feed shows the game under way.</p>
+        {children}
+      </>
+    );
+  }
   const { stats, score } = result;
   const names = new Map(players.map((p) => [p.id, p.name]));
   const who = (ids: string[]) => ids.map((id) => names.get(id)).filter(Boolean).join(', ') || '—';
-  const totals = Object.entries(score.totals)
-    .filter(([id]) => names.has(id))
-    .sort((a, b) => b[1] - a[1] || names.get(a[0])!.localeCompare(names.get(b[0])!));
   const live = score.status === 'live';
 
   return (
     <div className="tg-scoreboard" data-testid="tg-scoreboard">
       <p className="tg-livescore" data-testid="tg-livescore">
-        <strong>{game.away.abbr} {stats.away} – {game.home.abbr} {stats.home}</strong> <span className="muted">· {gameClock(stats)}</span>
+        <span className="tg-livescore-team"><TeamLogo team={game.away} size={32} /> {game.away.abbr} <strong>{stats.away}</strong></span>
+        <span className="muted">–</span>
+        <span className="tg-livescore-team"><strong>{stats.home}</strong> {game.home.abbr} <TeamLogo team={game.home} size={32} /></span>
+        <span className={live ? 'tg-clock tg-clock-live' : 'tg-clock'}>{gameClock(stats)}</span>
       </p>
       {score.winners.length > 0 && (
         <p className="tg-champion">🏆 Game winner{score.winners.length > 1 ? 's' : ''}: {who(score.winners)}</p>
       )}
-      {totals.length > 0 && (
-        <p className="tg-game-totals">
-          {totals.map(([id, pts]) => (
-            <span key={id} className="tg-chip-static">
-              {names.get(id)} <strong className={live ? 'tg-projected' : undefined}>{pts}</strong>
-            </span>
-          ))}
-        </p>
-      )}
+      {children}
       <div className="tg-reveal-wrap">
         <table className="tg-reveal tg-categories">
-          <caption>Who's getting points{live ? ' (projected)' : ''}</caption>
+          <caption>Who's getting points</caption>
           <thead>
             <tr>
               <th scope="col">Category</th>

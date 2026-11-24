@@ -85,6 +85,20 @@ test('join, pick, sign in on another phone, lock at kickoff, reveal', async ({ b
   await expect(alice.getByTestId('tg-save-status')).toContainText('Saved ✓');
   await expect(alice.getByTestId('tg-save-status')).toContainText('4 of 15 answered');
 
+  // Each game's tab shows how many of your picks are made, and an open lock until kickoff.
+  await expect(alice.getByTestId('tg-progress-g1')).toHaveAttribute('aria-valuenow', '4');
+  await expect(alice.getByTestId('tg-progress-g2')).toHaveAttribute('aria-valuenow', '0');
+  await expect(alice.getByRole('button', { name: /CHI @ DET/ }).locator('[data-phase]')).toHaveAttribute('data-phase', 'open');
+  await expect(alice.getByTestId('tg-lock-status')).toHaveAttribute('data-phase', 'open');
+
+  // Your account is in the menu at the top right.
+  await alice.getByRole('button', { name: 'Account: Alice' }).click();
+  await expect(alice.getByRole('menu', { name: 'Account' })).toContainText('Alice');
+  await expect(alice.getByRole('menuitem', { name: 'Change PIN' })).toBeVisible();
+  await expect(alice.getByRole('menuitem', { name: 'Switch player' })).toBeVisible();
+  await alice.keyboard.press('Escape');
+  await expect(alice.getByRole('menu', { name: 'Account' })).toHaveCount(0);
+
   // Bob joins without a PIN.
   const bob = await (await browser.newContext()).newPage();
   await join(bob, 'Bob');
@@ -117,21 +131,34 @@ test('join, pick, sign in on another phone, lock at kickoff, reveal', async ({ b
   // Kickoff: picks lock and everyone's are revealed, without a refresh.
   await alice.waitForTimeout(Math.max(0, lockAt - Date.now()));
   for (const page of [alice, bob, carol]) {
-    await expect(page.getByTestId('tg-lock-status')).toHaveText('Picks are locked and revealed.', { timeout: 15_000 });
-    const table = page.getByTestId('tg-reveal');
-    await expect(table).toBeVisible({ timeout: 15_000 });
-    await expect(table).toContainText('Alice');
-    await expect(table).toContainText('Bob', { timeout: 10_000 });
-    await expect(table).toContainText('CHI 20 – DET 27');
-    await expect(table).toContainText('Jahmyr Gibbs');
+    // A green lock (the game is on) on its tab and in the game's header.
+    await expect(page.getByTestId('tg-lock-status')).toHaveAttribute('data-phase', 'live', { timeout: 15_000 });
+    await expect(page.getByTestId('tg-lock-status')).toHaveText('Locked');
+    await expect(page.getByRole('button', { name: /CHI @ DET/ }).locator('[data-phase]')).toHaveAttribute('data-phase', 'live');
+    // Pick a player from the list to see their picks.
+    const picks = page.getByTestId('tg-reveal');
+    await expect(picks).toBeVisible({ timeout: 15_000 });
+    const player = page.getByTestId('tg-reveal-player');
+    await expect(player.locator('option')).toHaveCount(2, { timeout: 10_000 });
+    // It starts on you (Carol hasn't joined, so she starts on the first player).
+    await expect(player.locator('option:checked')).toHaveText(page === bob ? 'Bob (you)' : page === alice ? 'Alice (you)' : 'Alice');
+    const aliceValue = await player.locator('option', { hasText: 'Alice' }).getAttribute('value');
+    await player.selectOption(aliceValue!);
+    await expect(picks).toContainText('CHI 20 – DET 27');
+    await expect(picks).toContainText('Jahmyr Gibbs');
   }
+
+  // A phone opening the page now lands on the game being played, not the next one to pick.
+  const late = await (await browser.newContext()).newPage();
+  await late.goto('/thanksgiving');
+  await expect(late.getByRole('button', { name: /CHI @ DET/ })).toHaveAttribute('aria-current', 'page');
   await expect(bob.getByLabel('Total punts')).toHaveCount(0); // the form is gone
-  // The wide reveal table scrolls inside its own box; the page never scrolls sideways on a phone.
+  // The page never scrolls sideways on a phone.
   expect(await alice.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   // Game 2 is still open for late arrivals.
   await bob.getByRole('button', { name: /PHI @ DAL/ }).click();
-  await expect(bob.getByTestId('tg-lock-status')).toContainText('Picks lock at kickoff');
+  await expect(bob.getByTestId('tg-lock-status')).toHaveAttribute('data-phase', 'open');
   await expect(bob.getByLabel('Total punts')).toBeVisible();
 
   expect(csp).toEqual([]);

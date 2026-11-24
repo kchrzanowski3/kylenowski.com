@@ -139,7 +139,7 @@ export function TvView({ games, phases, results, standings, locked, players, onE
               <tbody>
                 {rankStandings(standings.rows.filter((r) => names.has(r.playerId)), locked, standings.status === 'final').map((r) => (
                   <tr key={r.playerId} className={r.rank === 1 ? 'tg-tv-leader' : undefined}>
-                    <td className="tg-rank"><RankMedal rank={r.rank} size={28} /></td>
+                    <td className="tg-rank"><RankMedal rank={r.rank} size={36} /></td>
                     <td>{names.get(r.playerId)}</td>
                     <td className="tg-num tg-board-locked">{r.locked}</td>
                     <td className="tg-num tg-live-points">{r.live}</td>

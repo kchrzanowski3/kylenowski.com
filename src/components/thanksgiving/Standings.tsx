@@ -70,7 +70,7 @@ export function Standings({ standings, games, players, me, locked }: Props) {
           return (
             <li key={r.playerId} className={rowClass || undefined}>
               <button type="button" className="tg-board-row" aria-expanded={expanded} onClick={() => setOpen(expanded ? null : r.playerId)}>
-                <span className="tg-rank"><RankMedal rank={r.rank} size={28} /></span>
+                <span className="tg-rank"><RankMedal rank={r.rank} size={34} /></span>
                 <span className="tg-board-name">{names.get(r.playerId)}{r.playerId === me?.id ? ' (you)' : ''}</span>
                 <span className="tg-points tg-board-locked" data-testid={`tg-locked-${names.get(r.playerId)}`} aria-label={`${r.locked} locked`}>{r.locked}</span>
                 <span className={projected ? 'tg-points tg-live-points' : 'tg-points'} data-testid={`tg-total-${names.get(r.playerId)}`} aria-label={`${r.live} live`}>{r.live}</span>

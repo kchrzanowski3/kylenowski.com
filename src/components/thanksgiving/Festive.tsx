@@ -10,34 +10,64 @@ import type { Game } from '../../lib/thanksgiving/view';
  * - 3rd place: Harvest bronze medal
  * - 4th+: Crisp tabular rank number
  */
-export function RankMedal({ rank, size = 28 }: { rank: number; size?: number }) {
+export function RankMedal({ rank, size = 32 }: { rank: number; size?: number }) {
   if (rank === 1) {
     return (
       <span className="tg-medal tg-medal-1" title="1st place — The Turducken!" aria-label="1st place, The Turducken">
-        <svg width={size} height={size} viewBox="0 0 36 36" role="img" aria-hidden="true">
-          {/* Crimson & gold ribbon tails */}
-          <path d="M12 24 L9 35 L14.5 32 L17.5 35.5 L18 25 Z" fill="#a32737" />
-          <path d="M24 24 L27 35 L21.5 32 L18.5 35.5 L18 25 Z" fill="#821c29" />
-          {/* Scalloped gold rosette medal */}
-          <circle cx="18" cy="15.5" r="12.5" fill="#e5a628" stroke="#8a5407" strokeWidth="1.5" />
-          <circle cx="18" cy="15.5" r="10.2" fill="#f7cf6a" stroke="#b97710" strokeWidth="1" strokeDasharray="2.2 1.6" />
-          {/* Little royal crown perched on top */}
-          <path d="M13.5 8.5 L14.8 5.2 L18 7.3 L21.2 5.2 L22.5 8.5 Z" fill="#fff3c4" stroke="#8a5407" strokeWidth="0.9" strokeLinejoin="round" />
-          {/* Golden roasted Turducken platter silhouette */}
-          <ellipse cx="18" cy="21.2" rx="8.2" ry="2.1" fill="#fff8eb" stroke="#8a5407" strokeWidth="0.9" />
+        <svg width={size} height={size} viewBox="0 0 40 40" role="img" aria-hidden="true">
+          {/* Serving platter */}
+          <ellipse cx="20" cy="31.5" rx="17" ry="4.5" fill="#fff8eb" stroke="#7a4b06" strokeWidth="1.6" />
+          <ellipse cx="20" cy="31.2" rx="13" ry="2.4" fill="#efe2c6" />
+          {/* Little herb garnish sprigs on the platter */}
+          <path d="M7.5 30.5 C6 28.5 8 27 9.8 28.6 C10.8 27 12.6 28.2 11.4 30.4 Z" fill="#1e7a44" />
+          <path d="M29.2 30.6 C30.5 28.6 32.8 28.4 33 30.2 C31.8 31.4 30.2 31.4 29.2 30.6 Z" fill="#1e7a44" />
+          {/* Plump golden-brown roasted Turducken body filling the frame */}
           <path
-            d="M11.6 19.6 C11.4 13.8 14.2 11 18.2 11 C21.8 11 24.4 13.4 24.5 17.5 C24.5 19.2 23.4 20.2 21.8 20.2 H13.4 C12.3 20.2 11.6 19.9 11.6 19.6 Z"
-            fill="#b85d19"
-            stroke="#6e3208"
-            strokeWidth="1.1"
+            d="M7 26.5 C6.5 16.5 12 11.5 19.5 11.5 C26.8 11.5 31.5 16 31.8 24 C32 27.6 29.5 29.5 25.5 29.5 H11.8 C8.5 29.5 7.2 28.4 7 26.5 Z"
+            fill="#c2641a"
+            stroke="#5e2a07"
+            strokeWidth="1.7"
+            strokeLinejoin="round"
           />
-          {/* Gloss highlight + layered turducken slice curve */}
-          <path d="M14.2 14.5 C15.6 13.1 18.2 12.8 19.8 13.7" fill="none" stroke="#f7cf6a" strokeWidth="1.2" strokeLinecap="round" />
-          <path d="M14.2 18 C16.2 16.9 19.2 17 21 18.2" fill="none" stroke="#ffd89c" strokeWidth="0.9" strokeLinecap="round" />
-          {/* Drumstick bone with paper frill */}
-          <path d="M23.2 16.5 L26.4 14.4" stroke="#fff8eb" strokeWidth="2.1" strokeLinecap="round" />
-          <circle cx="26.7" cy="13.8" r="1.2" fill="#fff8eb" />
-          <circle cx="27.2" cy="14.9" r="1.1" fill="#fff8eb" />
+          {/* Deep roasted belly shading */}
+          <path
+            d="M8.4 25.5 C9.5 27.8 12.5 28.4 25.2 28.4 C28.2 28.4 30.2 27.2 30.6 24.8 C27.5 26.4 13 26.8 8.4 25.5 Z"
+            fill="#9b4810"
+          />
+          {/* Crispy golden roast gloss */}
+          <path d="M11.5 16.8 C14 14 19 13.4 23.2 14.6" fill="none" stroke="#f7cb6b" strokeWidth="2.2" strokeLinecap="round" />
+          {/* Playful tucked wing / turducken layer curve */}
+          <path
+            d="M11.5 24 C14.5 21 20.5 20.8 23.8 23.4 C21.2 25.5 14.8 25.8 11.5 24 Z"
+            fill="#d97a26"
+            stroke="#6e3208"
+            strokeWidth="1.3"
+          />
+          {/* Big drumstick + bone + ruffled white paper frill */}
+          <path
+            d="M27.5 21.8 L34.2 16.2"
+            stroke="#fffcf6"
+            strokeWidth="3.6"
+            strokeLinecap="round"
+          />
+          <path
+            d="M27.5 21.8 L34.2 16.2"
+            stroke="#7a4b06"
+            strokeWidth="1.2"
+            strokeLinecap="round"
+            opacity="0.35"
+          />
+          <circle cx="34.8" cy="14.9" r="2.2" fill="#fffcf6" stroke="#7a4b06" strokeWidth="1.1" />
+          <circle cx="36.2" cy="17.1" r="2.1" fill="#fffcf6" stroke="#7a4b06" strokeWidth="1.1" />
+          {/* Little golden crown perched jauntily on top */}
+          <path
+            d="M13.5 11.8 L12.4 5.5 L16.8 8.6 L19.6 4 L22.4 8.6 L26.6 5.5 L25.4 11.8 Z"
+            fill="#f5c249"
+            stroke="#7a4b06"
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+          />
+          <circle cx="19.6" cy="9.6" r="1.1" fill="#a32737" />
         </svg>
       </span>
     );
@@ -45,7 +75,7 @@ export function RankMedal({ rank, size = 28 }: { rank: number; size?: number }) 
   if (rank === 2) {
     return (
       <span className="tg-medal tg-medal-2" title="2nd place" aria-label="2nd place">
-        <svg width={size - 2} height={size - 2} viewBox="0 0 32 32" role="img" aria-hidden="true">
+        <svg width={size - 4} height={size - 4} viewBox="0 0 32 32" role="img" aria-hidden="true">
           <circle cx="16" cy="16" r="13" fill="#cfd6dc" stroke="#5c6770" strokeWidth="1.5" />
           <circle cx="16" cy="16" r="10.2" fill="#e9eef2" stroke="#85929d" strokeWidth="1" />
           <text x="16" y="21" textAnchor="middle" fontFamily="'Barlow Condensed', sans-serif" fontWeight="800" fontSize="15" fill="#2d3748">2</text>
@@ -56,7 +86,7 @@ export function RankMedal({ rank, size = 28 }: { rank: number; size?: number }) 
   if (rank === 3) {
     return (
       <span className="tg-medal tg-medal-3" title="3rd place" aria-label="3rd place">
-        <svg width={size - 2} height={size - 2} viewBox="0 0 32 32" role="img" aria-hidden="true">
+        <svg width={size - 4} height={size - 4} viewBox="0 0 32 32" role="img" aria-hidden="true">
           <circle cx="16" cy="16" r="13" fill="#c9885b" stroke="#744221" strokeWidth="1.5" />
           <circle cx="16" cy="16" r="10.2" fill="#e3ae85" stroke="#965a31" strokeWidth="1" />
           <text x="16" y="21" textAnchor="middle" fontFamily="'Barlow Condensed', sans-serif" fontWeight="800" fontSize="15" fill="#4a260f">3</text>
@@ -152,7 +182,7 @@ export function ChampionBanner({
   return (
     <div className="tg-champ-banner" data-testid={testId}>
       <HarvestBurst burstKey={`${title}-${names}`} />
-      <RankMedal rank={1} size={42} />
+      <RankMedal rank={1} size={50} />
       <div className="tg-champ-copy">
         <span className="tg-champ-label">{title}</span>
         <strong className="tg-champ-names">{names}</strong>

@@ -28,6 +28,8 @@ env:
   FIREBASE_TOOLS: firebase-tools@15.37.0
   GITLEAKS_VERSION: 8.30.1
   ACTIONLINT_VERSION: 1.7.12
+  SEMGREP_VERSION: 1.186.0
+  ZIZMOR_VERSION: 1.33.1
   GCP_PROJECT_ID: kylenowski-com
   GCP_WIF_PROVIDER: projects/420500505231/locations/global/workloadIdentityPools/github/providers/github
   # ci-deployer can only be used by runs on refs/heads/main (enforced in GCP IAM).
@@ -157,12 +159,29 @@ jobs:
           curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
             | tar -xz -C /usr/local/bin actionlint
 
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
 
+      - name: Cache Semgrep and zizmor
+        id: security-venv
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/security-venv
+          key: security-venv-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ env.SEMGREP_VERSION }}-${{ env.ZIZMOR_VERSION }}
+
       - name: Install Semgrep and zizmor
-        run: python3 -m pip install --quiet semgrep zizmor
+        if: steps.security-venv.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          python3 -m venv "$HOME/.cache/security-venv"
+          "$HOME/.cache/security-venv/bin/pip" install --quiet --no-cache-dir \
+            "semgrep==$SEMGREP_VERSION" "zizmor==$ZIZMOR_VERSION"
+
+      - name: Add security tools to PATH
+        run: echo "$HOME/.cache/security-venv/bin" >> "$GITHUB_PATH"
 
       - name: Secrets scan (Gitleaks)
         env:
@@ -181,6 +200,7 @@ jobs:
         id: semgrep
         run: |
           set -euo pipefail
+          mkdir -p sarif
           semgrep scan \
             --config p/typescript \
             --config p/react \
@@ -189,6 +209,7 @@ jobs:
             --sarif --sarif-output=semgrep.sarif \
             --quiet --exclude tests/fixtures \
             src/ functions/src/ scripts/
+          jq '.runs[].automationDetails.id = "semgrep/"' semgrep.sarif > sarif/semgrep.sarif
           errors="$(jq '[.runs[].results[] | select(.level == "error")] | length' semgrep.sarif)"
           total="$(jq '[.runs[].results[]] | length' semgrep.sarif)"
           echo "Semgrep findings: ${total} total, ${errors} error(s)." >> "$GITHUB_STEP_SUMMARY"
@@ -197,35 +218,25 @@ jobs:
             exit 1
           fi
 
-      - name: Upload Semgrep SARIF
-        if: always() && hashFiles('semgrep.sarif') != ''
-        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4
-        with:
-          sarif_file: semgrep.sarif
-          category: semgrep
-
       - name: IaC scan (Trivy Terraform)
         run: |
           set -euo pipefail
+          mkdir -p sarif
           trivy config --ignorefile .trivyignore.yaml \
             --severity LOW,MEDIUM,HIGH,CRITICAL \
             --format sarif --output trivy-iac.sarif infra/
+          jq '.runs[].automationDetails.id = "trivy-iac/"' trivy-iac.sarif > sarif/trivy-iac.sarif
           trivy config --ignorefile .trivyignore.yaml \
             --severity HIGH,CRITICAL --exit-code 1 infra/
-
-      - name: Upload Trivy IaC SARIF
-        if: always() && hashFiles('trivy-iac.sarif') != ''
-        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4
-        with:
-          sarif_file: trivy-iac.sarif
-          category: trivy-iac
 
       - name: Dependency audit (Trivy SCA, advisory)
         run: |
           set -euo pipefail
+          mkdir -p sarif
           trivy fs --scanners vuln --include-dev-deps \
             --severity LOW,MEDIUM,HIGH,CRITICAL \
             --format sarif --output trivy-sca.sarif .
+          jq '.runs[].automationDetails.id = "trivy-sca/"' trivy-sca.sarif > sarif/trivy-sca.sarif
           {
             echo '### Dependency vulnerability inventory (advisory)'
             echo '```'
@@ -233,39 +244,36 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload Trivy SCA SARIF
-        if: always() && hashFiles('trivy-sca.sarif') != ''
-        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4
-        with:
-          sarif_file: trivy-sca.sarif
-          category: trivy-sca
-
       - name: Workflow security audit (zizmor)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          mkdir -p sarif
           set +e
           zizmor --format sarif .github/ > zizmor.sarif
           rc=$?
           set -e
+          if [ -s zizmor.sarif ]; then
+            jq '.runs[].automationDetails.id = "zizmor/"' zizmor.sarif > sarif/zizmor.sarif || true
+          fi
           # zizmor exit codes: 0 = clean, 10..13 = unknown/info/low/medium, 14 = high, 1..9 = tool error.
           if [ "$rc" -eq 14 ] || { [ "$rc" -ne 0 ] && [ "$rc" -lt 10 ]; }; then
             zizmor .github/ || true
             exit "$rc"
           fi
 
-      - name: Upload zizmor SARIF
-        if: always() && hashFiles('zizmor.sarif') != ''
-        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4
-        with:
-          sarif_file: zizmor.sarif
-          category: zizmor
-
       - name: Workflow & shell linting (actionlint + shellcheck)
         run: |
           set -euo pipefail
           actionlint -color=false
           shellcheck scripts/*.sh
+
+      - name: Upload security SARIF
+        if: always() && hashFiles('sarif/*.sarif') != ''
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        with:
+          sarif_file: sarif/
+          wait-for-processing: false
 
   # Read-only Terraform plan on PRs (and non-main dispatches), running in parallel with tests.
   infra-plan:

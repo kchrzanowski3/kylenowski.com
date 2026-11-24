@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { join, login, switchPlayer, type Clients } from '../../lib/thanksgiving/client';
 import { isValidPin, nameProblem } from '../../lib/thanksgiving/players';
 import type { Player } from '../../lib/thanksgiving/view';
+import { KeyIcon } from './icons';
 
 interface Props {
   clients: Clients;
@@ -66,8 +67,8 @@ export function SignIn({ clients, players, joinOpen, signedInElsewhere }: Props)
               {players.map((p) => (
                 <li key={p.id}>
                   <button type="button" className="tg-chip" disabled={busy} onClick={() => choose(p)}>
-                    {p.name}
-                    {p.hasPin && <span className="tg-lock" aria-label="has a PIN"> 🔒</span>}
+                    <span>{p.name}</span>
+                    {p.hasPin && <KeyIcon className="tg-pin-icon" size={13} label="has a PIN" />}
                   </button>
                 </li>
               ))}

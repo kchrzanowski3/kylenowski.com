@@ -4,8 +4,19 @@
 import { useState } from 'react';
 import type { Answers } from '../../lib/thanksgiving/questions';
 import type { GameScore } from '../../lib/thanksgiving/scoring';
-import { LockIcon } from './icons';
-import { answerText, defaultPickerPlayer, pickerPlayers, rowLocked, rowLost, rowPoints, type Game, type Pick, type Player } from '../../lib/thanksgiving/view';
+import { CheckIcon } from './icons';
+import {
+  answerText,
+  defaultPickerPlayer,
+  pickerPlayers,
+  rowActual,
+  rowLocked,
+  rowLost,
+  rowPoints,
+  type Game,
+  type Pick,
+  type Player,
+} from '../../lib/thanksgiving/view';
 
 const ROWS: { key: keyof Answers | 'final'; label: string }[] = [
   { key: 'final', label: 'Final score' },
@@ -65,7 +76,7 @@ export function PlayerPicks({ game, picks, players, me, score }: Props) {
           ))}
         </select>
         {scored && (
-          <strong className={live ? 'tg-points tg-projected' : 'tg-points'} data-testid="tg-reveal-total">
+          <strong className={live ? 'tg-points tg-live-points' : 'tg-points'} data-testid="tg-reveal-total">
             {total} pts
           </strong>
         )}
@@ -73,27 +84,35 @@ export function PlayerPicks({ game, picks, players, me, score }: Props) {
       {answers === null ? (
         <p className="muted">No picks for this game.</p>
       ) : (
-      <ul className="tg-pick-list">
-        {ROWS.map((r) => {
-          const text = answerText(game, r.key, answers);
-          const pts = scored ? rowPoints(score!.categories, r.key, current) : 0;
-          // Points locked in (green, with a lock), points they're only leading for (blue), or
-          // settled with no points for this player (greyed out).
-          const locked = scored && rowLocked(score!.categories, r.key);
-          const lost = scored && rowLost(score!.categories, r.key, current);
-          const state = pts > 0 ? (locked ? 'locked' : 'lead') : lost ? 'lost' : null;
-          return (
-            <li key={r.key} className={state ? `tg-pick-row tg-pick-${state}` : 'tg-pick-row'} data-testid={`tg-pick-${r.key}`}>
-              <span className="tg-pick-q">{r.label}</span>
-              <span className="tg-pick-a">{text || <span className="muted">—</span>}</span>
-              <span className="tg-pick-pts" aria-label={pts > 0 ? `${pts} ${locked ? 'locked' : 'in the lead'}` : undefined}>
-                {pts > 0 && locked && <LockIcon phase="live" size={11} />}
-                {pts > 0 ? `+${pts}` : ''}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+        <ul className="tg-pick-list">
+          {ROWS.map((r) => {
+            const text = answerText(game, r.key, answers);
+            const pts = scored ? rowPoints(score!.categories, r.key, current) : 0;
+            const actual = scored ? rowActual(score!.categories, r.key) : null;
+            // Banked points (green, with a check), live points in the lead (blue), or
+            // settled with no points for this player (greyed out).
+            const locked = scored && rowLocked(score!.categories, r.key);
+            const lost = scored && rowLost(score!.categories, r.key, current);
+            const state = pts > 0 ? (locked ? 'locked' : 'lead') : lost ? 'lost' : null;
+            return (
+              <li key={r.key} className={state ? `tg-pick-row tg-pick-${state}` : 'tg-pick-row'} data-testid={`tg-pick-${r.key}`}>
+                <span className="tg-pick-q-col">
+                  <span className="tg-pick-q">{r.label}</span>
+                  {actual && (
+                    <span className="tg-pick-actual" data-testid={`tg-pick-actual-${r.key}`}>
+                      {locked ? 'Final' : 'So far'}: {actual}
+                    </span>
+                  )}
+                </span>
+                <span className="tg-pick-a">{text || <span className="muted">—</span>}</span>
+                <span className="tg-pick-pts" aria-label={pts > 0 ? `${pts} ${locked ? 'banked' : 'live'}` : undefined}>
+                  {pts > 0 && locked && <CheckIcon size={12} />}
+                  {pts > 0 ? `+${pts}` : ''}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </section>
   );

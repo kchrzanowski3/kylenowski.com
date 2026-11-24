@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getClients, watchUser, type Clients } from '../../lib/thanksgiving/client';
 import { QUESTION_COUNT, answeredCount, type Answers } from '../../lib/thanksgiving/questions';
 import type { Standings as StandingsData } from '../../lib/thanksgiving/scoring';
-import { autoGameId, gamePhase, lockedPoints, toGame, type Game, type Player } from '../../lib/thanksgiving/view';
+import { autoGameId, gamePhase, lockedPoints, lockedPointsByGame, toGame, type Game, type Player } from '../../lib/thanksgiving/view';
 import { TvView } from './TvView';
 import { AccountMenu } from './AccountMenu';
-import { LockIcon, TeamLogo } from './icons';
+import { PhaseBadge, TeamLogo } from './icons';
 import type { GameResult } from './Scoreboard';
 import { Standings } from './Standings';
 import { GamePanel } from './GamePanel';
@@ -98,8 +98,9 @@ export default function App() {
   const phaseOf = new Map(phases.map((p) => [p.id, p.phase]));
   const activeId = tab && games?.some((g) => g.id === tab) ? tab : autoGameId(phases);
 
-  // Locked points (final categories, finished games) for the standings and the full-screen view.
+  // Banked points (final categories, finished games) for the standings and the full-screen view.
   const locked = useMemo(() => lockedPoints(results), [results]);
+  const lockedByGame = useMemo(() => lockedPointsByGame(results), [results]);
   const [tv, setTv] = useState(false);
   const exitTv = useCallback(() => setTv(false), []);
   const enterTv = useCallback(() => setTv(true), []);
@@ -111,6 +112,7 @@ export default function App() {
   const joinOpen = games.length === 0 || now < lastKickoff;
   const active = games.find((g) => g.id === activeId) ?? null;
   const showStandings = !!standings && standings.status !== 'pre';
+  const isPickingOpenGame = active ? phaseOf.get(active.id) === 'open' : false;
 
   // Next open game that still needs picks, for the celebratory 15/15 handoff button.
   const nextOpenGame =
@@ -131,7 +133,16 @@ export default function App() {
 
       {showStandings && (
         <aside className="tg-rail" aria-label="Standings">
-          <Standings standings={standings} games={games} players={players} me={me} locked={locked} />
+          <Standings
+            standings={standings}
+            games={games}
+            phases={phases}
+            players={players}
+            me={me}
+            locked={locked}
+            lockedByGame={lockedByGame}
+            isPickingOpenGame={isPickingOpenGame}
+          />
         </aside>
       )}
 
@@ -151,6 +162,18 @@ export default function App() {
                 const phase = phaseOf.get(g.id)!;
                 const n = answered[g.id] ?? 0;
                 const tabScore = phase !== 'open' && results[g.id]?.stats && results[g.id].stats.state !== 'pre' ? results[g.id].stats : null;
+                const badgeText =
+                  phase === 'live'
+                    ? tabScore
+                      ? `${tabScore.away}–${tabScore.home}`
+                      : 'Live'
+                    : phase === 'final'
+                      ? tabScore
+                        ? `${tabScore.away}–${tabScore.home}`
+                        : 'Final'
+                      : me
+                        ? `${n}/${QUESTION_COUNT}`
+                        : 'Open';
                 return (
                   <button
                     key={g.id}
@@ -167,16 +190,7 @@ export default function App() {
                       {g.away.abbr} @ {g.home.abbr}
                     </span>
                     <span className="tg-tab-meta">
-                      <LockIcon phase={phase} size={13} />
-                      {phase === 'live' ? (
-                        <span className="tg-tab-live-tag">
-                          {tabScore ? `${tabScore.away}–${tabScore.home}` : 'LIVE'}
-                        </span>
-                      ) : phase === 'final' && tabScore ? (
-                        <span className="tg-tab-final-tag">{tabScore.away}–{tabScore.home}</span>
-                      ) : me ? (
-                        <span className="tg-tab-count">{n}/{QUESTION_COUNT}</span>
-                      ) : null}
+                      <PhaseBadge phase={phase} text={badgeText} compact />
                     </span>
                     {me && (
                       <span

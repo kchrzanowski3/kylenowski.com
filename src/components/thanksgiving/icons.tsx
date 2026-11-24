@@ -3,29 +3,103 @@ import { useState } from 'react';
 import { splitTeams, teamLogo, type GamePhase } from '../../lib/thanksgiving/view';
 import type { TeamInfo } from '../../lib/thanksgiving/types';
 
-const PHASE_LABEL: Record<GamePhase, string> = { open: 'Open', live: 'Locked, in progress', final: 'Final' };
-
-/** Open lock for a game still open for picks; a lock, green while the game is on and grey once it's over. */
-export function LockIcon({ phase, size = 16 }: { phase: GamePhase; size?: number }) {
+/** Checkmark for finalized/banked points and completed games. */
+export function CheckIcon({ size = 14, className, label }: { size?: number; className?: string; label?: string }) {
   return (
     <svg
-      className={`tg-lock tg-lock-${phase}`}
+      className={className ? `tg-icon ${className}` : 'tg-icon'}
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      role="img"
-      aria-label={PHASE_LABEL[phase]}
-      data-phase={phase}
+      role={label ? 'img' : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
     >
-      <rect x="4" y="10.5" width="16" height="11" rx="2.5" fill="currentColor" />
-      <path
-        d={phase === 'open' ? 'M8 10.5V7a4 4 0 0 1 7.8-1.3' : 'M8 10.5V7a4 4 0 0 1 8 0v3.5'}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-      />
+      <path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+/** Hollow circle for live categories whose leader could still change. */
+export function LiveCircleIcon({ size = 14, className, label }: { size?: number; className?: string; label?: string }) {
+  return (
+    <svg
+      className={className ? `tg-icon ${className}` : 'tg-icon'}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      role={label ? 'img' : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    >
+      <circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" strokeWidth="2.6" />
+    </svg>
+  );
+}
+
+/** Clock icon for open games (picks open before kickoff). */
+export function ClockIcon({ size = 14, className, label }: { size?: number; className?: string; label?: string }) {
+  return (
+    <svg
+      className={className ? `tg-icon ${className}` : 'tg-icon'}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      role={label ? 'img' : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    >
+      <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="2.2" />
+      <path d="M12 7.5v4.75l3 1.75" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Key icon for PIN-protected player accounts. */
+export function KeyIcon({ size = 13, className, label }: { size?: number; className?: string; label?: string }) {
+  return (
+    <svg
+      className={className ? `tg-icon ${className}` : 'tg-icon'}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      role={label ? 'img' : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    >
+      <circle cx="8.5" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="2.2" />
+      <path d="M12.5 12H21m-3.5 0v3m3.5-3v2.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+const DEFAULT_PHASE_TEXT: Record<GamePhase, string> = { open: 'Open', live: 'Live', final: 'Final' };
+
+/** Game phase indicator for tabs and headers: clock for open, pulsing LIVE badge for live, check for final. */
+export function PhaseBadge({
+  phase,
+  text,
+  compact = false,
+  testId,
+}: {
+  phase: GamePhase;
+  text?: string;
+  compact?: boolean;
+  testId?: string;
+}) {
+  const label = text ?? DEFAULT_PHASE_TEXT[phase];
+  const iconSize = compact ? 11 : 13;
+  return (
+    <span
+      className={compact ? `tg-phase-badge tg-phase-badge-${phase}` : `tg-phase tg-phase-${phase}`}
+      data-phase={phase}
+      data-testid={testId}
+    >
+      {phase === 'open' && <ClockIcon size={iconSize} />}
+      {phase === 'live' && <span className="tg-live-dot" aria-hidden="true" />}
+      {phase === 'final' && <CheckIcon size={iconSize} />}
+      <span>{label}</span>
+    </span>
   );
 }
 

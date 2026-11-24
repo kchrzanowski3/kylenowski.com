@@ -5,9 +5,8 @@ import { etDateTime } from '../../lib/thanksgiving/config';
 import { isLocked } from '../../lib/thanksgiving/kickoff';
 import type { Answers } from '../../lib/thanksgiving/questions';
 import { countdown, type Game, type GamePhase, type Pick, type Player } from '../../lib/thanksgiving/view';
-import { LockIcon, TeamLogo } from './icons';
+import { PhaseBadge, TeamLogo } from './icons';
 import { PickForm } from './PickForm';
-import { PlayerPicks } from './PlayerPicks';
 import { Scoreboard, gameClock, type GameResult } from './Scoreboard';
 
 interface Props {
@@ -105,10 +104,11 @@ export function GamePanel({ clients, game, me, players, now, result, phase, next
               {gameClock(result!.stats)}
             </span>
           )}
-          <span className={`tg-phase tg-phase-${phase}`} data-testid="tg-lock-status" data-phase={phase}>
-            <LockIcon phase={phase} size={14} />
-            {phase === 'open' ? countdown(game.kickoff - now) : phase === 'live' ? 'Locked' : 'Final'}
-          </span>
+          <PhaseBadge
+            phase={phase}
+            text={phase === 'open' ? countdown(game.kickoff - now) : phase === 'live' ? 'Live' : 'Final'}
+            testId="tg-lock-status"
+          />
           <span className="tg-game-broadcast">
             {etDateTime(game.kickoff)}
             {game.tv ? ` · ${game.tv}` : ''}
@@ -131,11 +131,7 @@ export function GamePanel({ clients, game, me, players, now, result, phase, next
         />
       )}
       {!locked && !me && <p className="muted tg-signin-nudge">Sign in above to make your picks.</p>}
-      {locked && (
-        <Scoreboard game={game} result={result} players={players} me={me}>
-          <PlayerPicks game={game} picks={everyone} players={players} me={me} score={result?.score ?? null} />
-        </Scoreboard>
-      )}
+      {locked && <Scoreboard game={game} result={result} picks={everyone} players={players} me={me} />}
     </section>
   );
 }

@@ -12,7 +12,7 @@
 // Writes happen only when something changed.
 
 import { Timestamp, type Firestore } from 'firebase-admin/firestore';
-import { CONTEST_DATE } from '../../src/lib/thanksgiving/config';
+import { REAL_CONTEST, col, type Contest } from '../../src/lib/thanksgiving/config';
 import { ESPN_CORE, ESPN_SITE } from '../../src/lib/thanksgiving/espn';
 import { applyOverrides, overallStandings, scoreGame, type Overrides, type PlayerPick, type ScoredGame } from '../../src/lib/thanksgiving/scoring';
 import { deriveGameStats, feedStatus, preGameStats, scorerIdFromCorePlay, type GameStats } from '../../src/lib/thanksgiving/stats';
@@ -50,8 +50,8 @@ interface GameRow {
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
-async function loadGames(db: Firestore): Promise<GameRow[]> {
-  const snap = await db.collection('tgGames').orderBy('order').get();
+async function loadGames(db: Firestore, contest: Contest): Promise<GameRow[]> {
+  const snap = await db.collection(col(contest, 'Games')).orderBy('order').get();
   return snap.docs
     .filter((d) => d.get('kickoff'))
     .map((d) => ({
@@ -74,17 +74,21 @@ export async function pollFeed(
   now: number,
   games: GameRow[],
   errors: string[] = [],
+  contest: Contest = REAL_CONTEST,
 ): Promise<string[]> {
   const started = games.filter((g) => g.kickoff <= now);
   if (started.length === 0) return [];
-  const sb = await fetchJson(`${ESPN_SITE}/scoreboard?dates=${CONTEST_DATE}`);
-  const comps = new Map<string, any>((sb?.events ?? []).map((e: any) => [String(e.id), e.competitions?.[0]]));
+  const comps = new Map<string, any>();
+  for (const date of contest.dates) {
+    const sb = await fetchJson(`${ESPN_SITE}/scoreboard?dates=${date}`);
+    for (const e of sb?.events ?? []) comps.set(String(e.id), e.competitions?.[0]);
+  }
   const changed: string[] = [];
 
   for (const g of started) {
     // One game's feed trouble mustn't stop the others from updating.
     try {
-      if (await pollGame(db, fetchJson, now, g, comps.get(g.id))) changed.push(g.id);
+      if (await pollGame(db, fetchJson, now, g, comps.get(g.id), contest)) changed.push(g.id);
     } catch (e) {
       errors.push(`${g.away.abbr} @ ${g.home.abbr}: ${String(e)}`);
     }
@@ -93,11 +97,12 @@ export async function pollFeed(
 }
 
 /** Polls one game; true if its stored feed changed. */
-async function pollGame(db: Firestore, fetchJson: FetchJson, now: number, g: GameRow, competition: any): Promise<boolean> {
+async function pollGame(db: Firestore, fetchJson: FetchJson, now: number, g: GameRow, competition: any, contest: Contest): Promise<boolean> {
+  const live = col(contest, 'Live');
   {
     const status = feedStatus(competition);
     if (status.state === 'pre') return false; // kicked off on paper, not yet in the feed
-    const [liveSnap, overrideSnap] = await Promise.all([db.doc(`tgLive/${g.id}`).get(), db.doc(`tgOverrides/${g.id}`).get()]);
+    const [liveSnap, overrideSnap] = await Promise.all([db.doc(`${live}/${g.id}`).get(), db.doc(`${col(contest, 'Overrides')}/${g.id}`).get()]);
     if (overrideSnap.get('paused') === true) return false;
     const prev = (liveSnap.exists ? liveSnap.data() : null) as LiveDoc | null;
 
@@ -120,7 +125,7 @@ async function pollGame(db: Firestore, fetchJson: FetchJson, now: number, g: Gam
 
     if (prev && same(prev.feed, stats)) return false;
     const recent = [...(prev?.recent ?? []), { at: now, stats }].filter((s) => s.at >= now - HISTORY_MS);
-    await db.doc(`tgLive/${g.id}`).set({ feed: stats, feedAt: now, recent, scorers } satisfies LiveDoc);
+    await db.doc(`${live}/${g.id}`).set({ feed: stats, feedAt: now, recent, scorers } satisfies LiveDoc);
     return true;
   }
 }
@@ -143,20 +148,21 @@ export interface PublishReport {
  * changed: tgResults/{game} and tgStandings/overall. Also used for the one-off re-scoring after an
  * admin change, so it reads everything fresh.
  */
-export async function publish(db: Firestore, now: number, gamesIn?: GameRow[]): Promise<PublishReport> {
-  const games = gamesIn ?? (await loadGames(db));
-  const delaySec = Number((await db.doc('tgMeta/config').get()).get('spoilerDelaySec') ?? 0);
+export async function publish(db: Firestore, now: number, gamesIn?: GameRow[], contest: Contest = REAL_CONTEST): Promise<PublishReport> {
+  const c = (name: Parameters<typeof col>[1]) => col(contest, name);
+  const games = gamesIn ?? (await loadGames(db, contest));
+  const delaySec = Number((await db.doc(`${c('Meta')}/config`).get()).get('spoilerDelaySec') ?? 0);
   const delayMs = Math.max(0, Math.min(SPOILER_DELAY_MAX_SEC, delaySec)) * 1000;
-  const players = (await db.collection('tgPlayers').get()).docs.map((d) => d.id);
+  const players = (await db.collection(c('Players')).get()).docs.map((d) => d.id);
   const playerSet = new Set(players);
 
   const scored: ScoredGame[] = [];
   const report: PublishReport = { results: [], standingsChanged: false };
   for (const g of games) {
     const [liveSnap, overrideSnap, resultSnap] = await Promise.all([
-      db.doc(`tgLive/${g.id}`).get(),
-      db.doc(`tgOverrides/${g.id}`).get(),
-      db.doc(`tgResults/${g.id}`).get(),
+      db.doc(`${c('Live')}/${g.id}`).get(),
+      db.doc(`${c('Overrides')}/${g.id}`).get(),
+      db.doc(`${c('Results')}/${g.id}`).get(),
     ]);
     const live = (liveSnap.exists ? liveSnap.data() : null) as LiveDoc | null;
     const overrides = (overrideSnap.get('stats') as Overrides | undefined) ?? null;
@@ -168,30 +174,30 @@ export async function publish(db: Firestore, now: number, gamesIn?: GameRow[]): 
     const picks: PlayerPick[] =
       g.kickoff > now
         ? []
-        : (await db.collection(`tgGames/${g.id}/picks`).get()).docs
+        : (await db.collection(`${c('Games')}/${g.id}/picks`).get()).docs
             .filter((d) => playerSet.has(d.id))
             .map((d) => ({ playerId: d.id, answers: d.get('answers') ?? {} }));
     const score = scoreGame(stats, picks, { awayAbbr: g.away.abbr, homeAbbr: g.home.abbr, scorers: g.scorers });
     scored.push({ gameId: g.id, order: g.order, stats, score, picks });
 
     if (!resultSnap.exists || !same(resultSnap.get('stats'), stats) || !same(resultSnap.get('score'), score)) {
-      await db.doc(`tgResults/${g.id}`).set({ stats, score, publishedAt: Timestamp.fromMillis(now) });
+      await db.doc(`${c('Results')}/${g.id}`).set({ stats, score, publishedAt: Timestamp.fromMillis(now) });
       report.results.push(g.id);
     }
   }
 
   const standings = overallStandings(players, scored);
-  const prev = await db.doc('tgStandings/overall').get();
+  const prev = await db.doc(`${c('Standings')}/overall`).get();
   if (!prev.exists || !same(prev.get('rows'), standings.rows) || prev.get('status') !== standings.status || !same(prev.get('champions'), standings.champions)) {
-    await db.doc('tgStandings/overall').set({ ...standings, publishedAt: Timestamp.fromMillis(now) });
+    await db.doc(`${c('Standings')}/overall`).set({ ...standings, publishedAt: Timestamp.fromMillis(now) });
     report.standingsChanged = true;
   }
   return report;
 }
 
 /** Ends this call's lease, so the next minute's call can start right away. */
-export async function releaseLease(db: Firestore, holder: string, now: number): Promise<void> {
-  const ref = db.doc('tgMeta/worker');
+export async function releaseLease(db: Firestore, holder: string, now: number, contest: Contest = REAL_CONTEST): Promise<void> {
+  const ref = db.doc(`${col(contest, 'Meta')}/worker`);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     if (snap.get('leaseHolder') === holder) tx.set(ref, { leaseUntil: Timestamp.fromMillis(now) }, { merge: true });
@@ -199,8 +205,14 @@ export async function releaseLease(db: Firestore, holder: string, now: number): 
 }
 
 /** Takes or renews the worker lease. False if another call holds it. */
-export async function takeLease(db: Firestore, holder: string, now: number, forMs = 75_000): Promise<boolean> {
-  const ref = db.doc('tgMeta/worker');
+export async function takeLease(
+  db: Firestore,
+  holder: string,
+  now: number,
+  forMs = 75_000,
+  contest: Contest = REAL_CONTEST,
+): Promise<boolean> {
+  const ref = db.doc(`${col(contest, 'Meta')}/worker`);
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const until = (snap.get('leaseUntil') as Timestamp | undefined)?.toMillis() ?? 0;
@@ -224,21 +236,22 @@ export interface LiveRunReport {
 export async function runLive(
   db: Firestore,
   fetchJson: FetchJson,
-  opts: { holder: string; budgetMs?: number; clock?: () => number; sleep?: (ms: number) => Promise<void> },
+  opts: { holder: string; budgetMs?: number; clock?: () => number; sleep?: (ms: number) => Promise<void>; contest?: Contest },
 ): Promise<LiveRunReport> {
+  const contest = opts.contest ?? REAL_CONTEST;
   const clock = opts.clock ?? Date.now;
   const sleep = opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
   const start = clock();
   const budget = opts.budgetMs ?? 50_000;
   const report: LiveRunReport = { ran: false, polls: 0, errors: [] };
-  if (!(await takeLease(db, opts.holder, start))) return report;
+  if (!(await takeLease(db, opts.holder, start, undefined, contest))) return report;
   report.ran = true;
 
-  let games = await loadGames(db);
+  let games = await loadGames(db, contest);
   if (games.some((g) => g.kickoff > start)) {
     try {
-      await runPregameRefresh(db, fetchJson, clock, { seasonAverages: false });
-      games = await loadGames(db);
+      await runPregameRefresh(db, fetchJson, clock, { seasonAverages: false, contest });
+      games = await loadGames(db, contest);
     } catch (e) {
       report.errors.push(`pre-game refresh: ${String(e)}`);
     }
@@ -247,27 +260,27 @@ export async function runLive(
   for (;;) {
     const t = clock();
     try {
-      await pollFeed(db, fetchJson, t, games, report.errors);
+      await pollFeed(db, fetchJson, t, games, report.errors, contest);
     } catch (e) {
       report.errors.push(`poll: ${String(e)}`);
     }
     try {
-      await publish(db, t, games);
+      await publish(db, t, games, contest);
     } catch (e) {
       report.errors.push(`publish: ${String(e)}`);
     }
     report.polls++;
-    await db.doc('tgMeta/worker').set(
+    await db.doc(`${col(contest, 'Meta')}/worker`).set(
       { lastPollAt: Timestamp.fromMillis(t), lastErrors: report.errors.slice(-5) },
       { merge: true },
     );
     const next = t + POLL_MS;
     if (next - start > budget) break;
     await sleep(Math.max(0, next - clock()));
-    if (!(await takeLease(db, opts.holder, clock()))) break;
+    if (!(await takeLease(db, opts.holder, clock(), undefined, contest))) break;
   }
   // Hand over to the next minute's call. Holding the lease past the end of this call would make
   // that call find it taken and skip a whole minute of updates.
-  await releaseLease(db, opts.holder, clock());
+  await releaseLease(db, opts.holder, clock(), contest);
   return report;
 }

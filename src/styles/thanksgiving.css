@@ -212,3 +212,20 @@
 .tg-scorer-editor ul { padding-left: 1.2rem; }
 /* On the admin screen the stat name column scrolls with the table, so it never covers the Set buttons. */
 .tg-admin .tg-reveal tbody th { position: static; }
+
+/* /thanksgiving-test: the banner that marks the test copy. */
+.tg-test-banner {
+  border: 2px dashed #b45309;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, #f59e0b 18%, var(--bg));
+}
+.tg-test-banner strong {
+  display: inline-block;
+  margin-right: 0.5rem;
+  padding: 0 0.5rem;
+  border-radius: 0.25rem;
+  background: #b45309;
+  color: #fff;
+  letter-spacing: 0.08em;
+}

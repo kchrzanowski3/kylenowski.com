@@ -4,12 +4,15 @@
 
 import { Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { seasonAverages } from '../../src/lib/thanksgiving/averages';
-import { CONTEST_DATE, CONTEST_DAY_ET, SEASON, etDate } from '../../src/lib/thanksgiving/config';
+import { REAL_CONTEST, SEASON, col, etDate, type Contest } from '../../src/lib/thanksgiving/config';
 import { ESPN_CORE, ESPN_SITE, completedEventIds, deriveTeamGameStats, parseScoreboard, type FeedGame } from '../../src/lib/thanksgiving/espn';
 import { nextKickoff } from '../../src/lib/thanksgiving/kickoff';
 import { vegasProjection } from '../../src/lib/thanksgiving/projection';
 import { applyScorerEdits, buildScorerOptions, parseRoster } from '../../src/lib/thanksgiving/scorers';
 import type { ScorerEdits, ScorerOption, TeamAverages, TeamGameStats } from '../../src/lib/thanksgiving/types';
+import { ensurePlayer } from './auth';
+import { nameKey } from '../../src/lib/thanksgiving/players';
+import { seedAnswers } from '../../src/lib/thanksgiving/seed-picks';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export type FetchJson = (url: string) => Promise<any>;
@@ -19,6 +22,10 @@ export interface RefreshReport {
   seasonGames: number;
   newSeasonGames: number;
   errors: string[];
+  /** Test contest only: the seed players this run created (see Contest.seedPlayers). */
+  seededPlayers?: string[];
+  /** Test contest only: how many seed-player picks this run created. */
+  seededPicks?: number;
 }
 
 const REGULAR_SEASON_WEEKS = 18;
@@ -31,8 +38,15 @@ interface SeasonGameDoc {
 }
 
 /** Derived stats for every completed regular-season game before the contest, cached per game. */
-async function loadSeasonGames(db: Firestore, fetchJson: FetchJson, errors: string[]): Promise<{ docs: SeasonGameDoc[]; fetched: number }> {
-  const cacheSnap = await db.collection('tgSeasonGames').get();
+async function loadSeasonGames(
+  db: Firestore,
+  fetchJson: FetchJson,
+  errors: string[],
+  contest: Contest,
+): Promise<{ docs: SeasonGameDoc[]; fetched: number }> {
+  const seasonGames = col(contest, 'SeasonGames');
+  const firstDay = [...contest.daysEt].sort()[0];
+  const cacheSnap = await db.collection(seasonGames).get();
   const cache = new Map(cacheSnap.docs.map((d) => [d.id, d.data() as SeasonGameDoc]));
 
   const ids: string[] = [];
@@ -45,7 +59,7 @@ async function loadSeasonGames(db: Firestore, fetchJson: FetchJson, errors: stri
       continue;
     }
     const before = new Set(
-      (sb?.events ?? []).filter((e: any) => etDate(Date.parse(e.date)) < CONTEST_DAY_ET).map((e: any) => String(e.id)),
+      (sb?.events ?? []).filter((e: any) => etDate(Date.parse(e.date)) < firstDay).map((e: any) => String(e.id)),
     );
     ids.push(...completedEventIds(sb).filter((id) => before.has(id)));
   }
@@ -59,7 +73,7 @@ async function loadSeasonGames(db: Firestore, fetchJson: FetchJson, errors: stri
         const derived = deriveTeamGameStats(await fetchJson(`${ESPN_SITE}/summary?event=${id}`));
         if (!derived) throw new Error('no teams in summary');
         const doc: SeasonGameDoc = derived;
-        await db.collection('tgSeasonGames').doc(id).set(doc);
+        await db.collection(seasonGames).doc(id).set(doc);
         cache.set(id, doc);
         fetched++;
       } catch (e) {
@@ -93,6 +107,20 @@ export interface RefreshOptions {
    * worker, which refreshes every minute until each kickoff, skips this and keeps the stored ones.
    */
   seasonAverages?: boolean;
+  /** Which contest to refresh; the real one unless given. */
+  contest?: Contest;
+}
+
+/** Every game on the contest's scoreboards that falls on one of its days, ordered by kickoff. */
+async function contestGames(fetchJson: FetchJson, contest: Contest): Promise<FeedGame[]> {
+  const byId = new Map<string, FeedGame>();
+  for (const date of contest.dates) {
+    const sb = await fetchJson(`${ESPN_SITE}/scoreboard?dates=${date}`);
+    for (const g of parseScoreboard(sb)) {
+      if (contest.daysEt.includes(etDate(g.kickoff))) byId.set(g.espnId, g);
+    }
+  }
+  return [...byId.values()].sort((x, y) => x.kickoff - y.kickoff || x.espnId.localeCompare(y.espnId));
 }
 
 export async function runPregameRefresh(
@@ -102,14 +130,24 @@ export async function runPregameRefresh(
   options: RefreshOptions = {},
 ): Promise<RefreshReport> {
   const withSeason = options.seasonAverages ?? true;
+  const contest = options.contest ?? REAL_CONTEST;
   const errors: string[] = [];
   const report: RefreshReport = { games: [], seasonGames: 0, newSeasonGames: 0, errors };
 
-  const sb = await fetchJson(`${ESPN_SITE}/scoreboard?dates=${CONTEST_DATE}`);
-  const games = parseScoreboard(sb).filter((g) => etDate(g.kickoff) === CONTEST_DAY_ET);
-  if (games.length === 0) throw new Error(`no games on the ${CONTEST_DATE} scoreboard`);
+  // Test contest only (the real contest has no seed players): Test1-Test10, without PINs, if
+  // missing. Done first so they exist even when the feed is down. The live worker's per-minute
+  // refresh (withSeason false) leaves this to the scheduled runs.
+  if (withSeason && contest.seedPlayers.length > 0) {
+    report.seededPlayers = [];
+    for (const name of contest.seedPlayers) {
+      if (await ensurePlayer(db, contest, name, clock())) report.seededPlayers.push(name);
+    }
+  }
 
-  const season = withSeason ? await loadSeasonGames(db, fetchJson, errors) : { docs: [], fetched: 0 };
+  const games = await contestGames(fetchJson, contest);
+  if (games.length === 0) throw new Error(`no games on the ${contest.dates.join(', ')} scoreboard`);
+
+  const season = withSeason ? await loadSeasonGames(db, fetchJson, errors, contest) : { docs: [], fetched: 0 };
   report.seasonGames = season.docs.length;
   report.newSeasonGames = season.fetched;
   const teamGames = season.docs.flatMap((g) => [
@@ -119,7 +157,7 @@ export async function runPregameRefresh(
   const averages = seasonAverages(teamGames);
 
   for (const [i, game] of games.entries()) {
-    const ref = db.collection('tgGames').doc(game.espnId);
+    const ref = db.collection(col(contest, 'Games')).doc(game.espnId);
     const matchup = `${game.away.abbr} @ ${game.home.abbr}`;
 
     let built: ScorerOption[] | null = null;
@@ -167,7 +205,15 @@ export async function runPregameRefresh(
     report.games.push({ espnId: game.espnId, matchup, frozen });
   }
 
-  await db.collection('tgMeta').doc('refresh').set(
+  if (withSeason && contest.seedPlayers.length > 0) {
+    try {
+      report.seededPicks = await seedPicks(db, contest, clock());
+    } catch (e) {
+      errors.push(`seed picks: ${String(e)}`); // e.g. a player saved a pick at the same moment; next run retries
+    }
+  }
+
+  await db.collection(col(contest, 'Meta')).doc('refresh').set(
     {
       lastRunAt: Timestamp.fromMillis(clock()),
       games: report.games.length,
@@ -177,4 +223,34 @@ export async function runPregameRefresh(
     { merge: true },
   );
   return report;
+}
+
+/**
+ * Test contest only: gives each seed player a full set of picks for every game they have none for,
+ * including a game that has already kicked off, so a practice game always has players to score.
+ * Picks a person has made (signed in as a seed player) are never replaced. Returns how many it made.
+ */
+async function seedPicks(db: Firestore, contest: Contest, now: number): Promise<number> {
+  if (contest.id === 'thanksgiving') throw new Error('the real contest has no seed players');
+  const names = await db.getAll(...contest.seedPlayers.map((n) => db.collection(col(contest, 'Names')).doc(nameKey(n))));
+  const players = names
+    .map((snap, i) => ({ name: contest.seedPlayers[i], id: snap.get('playerId') as string | undefined }))
+    .filter((p): p is { name: string; id: string } => typeof p.id === 'string');
+  const games = await db.collection(col(contest, 'Games')).get();
+  let made = 0;
+  for (const g of games.docs) {
+    const refs = players.map((p) => db.doc(`${col(contest, 'Games')}/${g.id}/picks/${p.id}`));
+    const existing = refs.length > 0 ? await db.getAll(...refs) : [];
+    const batch = db.batch();
+    let n = 0;
+    existing.forEach((snap, i) => {
+      if (snap.exists) return;
+      const answers = seedAnswers(players[i].name, g.id, (g.get('scorers') as ScorerOption[] | undefined) ?? []);
+      batch.create(refs[i], { answers, updatedAt: Timestamp.fromMillis(now) });
+      n++;
+    });
+    if (n > 0) await batch.commit();
+    made += n;
+  }
+  return made;
 }

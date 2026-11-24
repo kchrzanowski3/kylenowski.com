@@ -5,13 +5,14 @@
 
 import type { Auth } from 'firebase-admin/auth';
 import { FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore';
+import { REAL_CONTEST, col, type CollectionName, type Contest } from '../../src/lib/thanksgiving/config';
 import { canSetKickoff } from '../../src/lib/thanksgiving/kickoff';
 import { cleanName, nameKey, nameProblem } from '../../src/lib/thanksgiving/players';
 import { OVERRIDABLE, type OverrideKey } from '../../src/lib/thanksgiving/scoring';
 import { applyScorerEdits } from '../../src/lib/thanksgiving/scorers';
 import type { ScorerEdits, ScorerOption } from '../../src/lib/thanksgiving/types';
 import { AuthError } from './auth';
-import { SPOILER_DELAY_MAX_SEC, publish } from './live';
+import { SPOILER_DELAY_MAX_SEC, publish as publishContest } from './live';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -79,60 +80,72 @@ export function overrideProblem(key: string, value: unknown): string | null {
 const GAME_ID = /^[A-Za-z0-9]{1,40}$/;
 const PLAYER_ID = /^[A-Za-z0-9]{1,40}$/;
 
-async function log(db: Firestore, by: string, action: string, details: Record<string, unknown>, now: number) {
-  await db.collection('tgAdminLog').add({ at: Timestamp.fromMillis(now), by, action, details });
+async function logEntry(db: Firestore, contest: Contest, by: string, action: string, details: Record<string, unknown>, now: number) {
+  await db.collection(col(contest, 'AdminLog')).add({ at: Timestamp.fromMillis(now), by, action, details });
 }
 
-async function gameRef(db: Firestore, gameId: unknown) {
+async function findGame(db: Firestore, contest: Contest, gameId: unknown) {
   if (typeof gameId !== 'string' || !GAME_ID.test(gameId)) throw new AuthError(400, 'Unknown game.');
-  const ref = db.doc(`tgGames/${gameId}`);
+  const ref = db.doc(`${col(contest, 'Games')}/${gameId}`);
   const snap = await ref.get();
   if (!snap.exists) throw new AuthError(404, 'Unknown game.');
   return { ref, snap, id: gameId };
 }
 
-async function playerRef(db: Firestore, playerId: unknown) {
+async function findPlayer(db: Firestore, contest: Contest, playerId: unknown) {
   if (typeof playerId !== 'string' || !PLAYER_ID.test(playerId)) throw new AuthError(400, 'Unknown player.');
-  const ref = db.doc(`tgPlayers/${playerId}`);
+  const ref = db.doc(`${col(contest, 'Players')}/${playerId}`);
   const snap = await ref.get();
   if (!snap.exists) throw new AuthError(404, 'Unknown player.');
   return { ref, snap, id: playerId };
 }
 
 /** Runs one admin action. Returns what the admin screen shows afterwards. */
-export async function adminAction(db: Firestore, auth: Auth, by: string, body: any, now: number): Promise<Record<string, unknown>> {
+export async function adminAction(
+  db: Firestore,
+  auth: Auth,
+  by: string,
+  body: any,
+  now: number,
+  contest: Contest = REAL_CONTEST,
+): Promise<Record<string, unknown>> {
   const action = String(body?.action ?? '');
+  const c = (name: CollectionName) => col(contest, name);
+  const log = (what: string, details: Record<string, unknown>) => logEntry(db, contest, by, what, details, now);
+  const gameRef = (gameId: unknown) => findGame(db, contest, gameId);
+  const playerRef = (playerId: unknown) => findPlayer(db, contest, playerId);
+  const publish = (d: Firestore, t: number) => publishContest(d, t, undefined, contest);
   switch (action) {
     case 'setOverride': {
-      const g = await gameRef(db, body.gameId);
+      const g = await gameRef(body.gameId);
       const problem = overrideProblem(String(body.key), body.value);
       if (problem) throw new AuthError(400, problem);
-      await db.doc(`tgOverrides/${g.id}`).set(
+      await db.doc(`${c('Overrides')}/${g.id}`).set(
         { stats: { [body.key]: body.value === null ? FieldValue.delete() : body.value }, updatedAt: Timestamp.fromMillis(now) },
         { merge: true },
       );
-      await log(db, by, action, { gameId: g.id, key: body.key, value: body.value }, now);
+      await log(action, { gameId: g.id, key: body.key, value: body.value });
       return { ok: true, publish: await publish(db, now) };
     }
     case 'setPaused': {
-      const g = await gameRef(db, body.gameId);
+      const g = await gameRef(body.gameId);
       if (typeof body.paused !== 'boolean') throw new AuthError(400, 'paused must be true or false.');
-      await db.doc(`tgOverrides/${g.id}`).set({ paused: body.paused, updatedAt: Timestamp.fromMillis(now) }, { merge: true });
-      await log(db, by, action, { gameId: g.id, paused: body.paused }, now);
+      await db.doc(`${c('Overrides')}/${g.id}`).set({ paused: body.paused, updatedAt: Timestamp.fromMillis(now) }, { merge: true });
+      await log(action, { gameId: g.id, paused: body.paused });
       return { ok: true };
     }
     case 'rescore': {
-      await log(db, by, action, {}, now);
+      await log(action, {});
       return { ok: true, publish: await publish(db, now) };
     }
     case 'setSpoilerDelay': {
       if (!isInt(body.seconds, 0, SPOILER_DELAY_MAX_SEC)) throw new AuthError(400, `The delay is 0–${SPOILER_DELAY_MAX_SEC} seconds.`);
-      await db.doc('tgMeta/config').set({ spoilerDelaySec: body.seconds }, { merge: true });
-      await log(db, by, action, { seconds: body.seconds }, now);
+      await db.doc(`${c('Meta')}/config`).set({ spoilerDelaySec: body.seconds }, { merge: true });
+      await log(action, { seconds: body.seconds });
       return { ok: true, publish: await publish(db, now) }; // takes effect immediately
     }
     case 'renamePlayer': {
-      const p = await playerRef(db, body.playerId);
+      const p = await playerRef(body.playerId);
       if (typeof body.name !== 'string') throw new AuthError(400, 'Type a name.');
       const problem = nameProblem(body.name);
       if (problem) throw new AuthError(400, problem);
@@ -141,53 +154,53 @@ export async function adminAction(db: Firestore, auth: Auth, by: string, body: a
       const newKey = nameKey(name);
       await db.runTransaction(async (tx) => {
         if (newKey !== oldKey) {
-          const taken = await tx.get(db.doc(`tgNames/${newKey}`));
+          const taken = await tx.get(db.doc(`${c('Names')}/${newKey}`));
           if (taken.exists) throw new AuthError(409, `"${name}" is taken.`);
-          tx.delete(db.doc(`tgNames/${oldKey}`));
-          tx.create(db.doc(`tgNames/${newKey}`), { playerId: p.id });
+          tx.delete(db.doc(`${c('Names')}/${oldKey}`));
+          tx.create(db.doc(`${c('Names')}/${newKey}`), { playerId: p.id });
         }
         tx.update(p.ref, { name });
       });
-      await log(db, by, action, { playerId: p.id, from: p.snap.get('name'), to: name }, now);
+      await log(action, { playerId: p.id, from: p.snap.get('name'), to: name });
       return { ok: true, publish: await publish(db, now) };
     }
     case 'resetPin': {
-      const p = await playerRef(db, body.playerId);
-      await db.doc(`tgSecrets/${p.id}`).set({ pinHash: null, salt: null, failures: 0, lockedUntil: null });
+      const p = await playerRef(body.playerId);
+      await db.doc(`${c('Secrets')}/${p.id}`).set({ pinHash: null, salt: null, failures: 0, lockedUntil: null });
       await p.ref.update({ hasPin: false });
-      await log(db, by, action, { playerId: p.id, name: p.snap.get('name') }, now);
+      await log(action, { playerId: p.id, name: p.snap.get('name') });
       return { ok: true };
     }
     case 'removePlayer': {
-      const p = await playerRef(db, body.playerId);
-      const games = await db.collection('tgGames').get();
+      const p = await playerRef(body.playerId);
+      const games = await db.collection(c('Games')).get();
       const batch = db.batch();
-      for (const g of games.docs) batch.delete(db.doc(`tgGames/${g.id}/picks/${p.id}`));
+      for (const g of games.docs) batch.delete(db.doc(`${c('Games')}/${g.id}/picks/${p.id}`));
       batch.delete(p.ref);
-      batch.delete(db.doc(`tgSecrets/${p.id}`));
-      batch.delete(db.doc(`tgNames/${nameKey(p.snap.get('name'))}`));
+      batch.delete(db.doc(`${c('Secrets')}/${p.id}`));
+      batch.delete(db.doc(`${c('Names')}/${nameKey(p.snap.get('name'))}`));
       await batch.commit();
       await auth.revokeRefreshTokens(p.id).catch(() => {}); // signed-in phones lose access
-      await log(db, by, action, { playerId: p.id, name: p.snap.get('name') }, now);
+      await log(action, { playerId: p.id, name: p.snap.get('name') });
       return { ok: true, publish: await publish(db, now) };
     }
     case 'editScorers': {
-      const g = await gameRef(db, body.gameId);
+      const g = await gameRef(body.gameId);
       const kickoff = (g.snap.get('kickoff') as Timestamp).toMillis();
       if (now >= kickoff) throw new AuthError(409, 'This game has kicked off; its list is final.');
       const edits = parseEdits(body.edits);
       const base = (g.snap.get('scorersFeed') ?? g.snap.get('scorers') ?? []) as ScorerOption[];
       await g.ref.update({ scorerEdits: edits, scorers: applyScorerEdits(base, edits) });
-      await log(db, by, action, { gameId: g.id, edits }, now);
+      await log(action, { gameId: g.id, edits });
       return { ok: true };
     }
     case 'setKickoff': {
-      const g = await gameRef(db, body.gameId);
+      const g = await gameRef(body.gameId);
       const stored = (g.snap.get('kickoff') as Timestamp).toMillis();
       if (!canSetKickoff(stored, now)) throw new AuthError(409, "This game's lock has passed; it can't be moved (picks have been revealed).");
       if (!isInt(body.kickoffMs, now - 86_400_000, now + 30 * 86_400_000)) throw new AuthError(400, 'Pick a time.');
       await g.ref.update({ kickoff: Timestamp.fromMillis(body.kickoffMs), kickoffOverride: Timestamp.fromMillis(body.kickoffMs) });
-      await log(db, by, action, { gameId: g.id, from: new Date(stored).toISOString(), to: new Date(body.kickoffMs).toISOString() }, now);
+      await log(action, { gameId: g.id, from: new Date(stored).toISOString(), to: new Date(body.kickoffMs).toISOString() });
       return { ok: true };
     }
     default:

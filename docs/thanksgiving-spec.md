@@ -20,12 +20,13 @@ Only the Thursday games count. The Wednesday (Packers @ Rams) and Friday (Bronco
 part of the contest.
 
 Games, teams and kickoff times come from the live data feed, not from this table, so a schedule change is picked
-up automatically.
+up automatically. The contest's games are every game on its ESPN scoreboard dates (here, just 20261126) whose
+kickoff falls on its ET days, numbered by kickoff. "The last game" below is game 3.
 
 ## Players
 
 - **Joining:** type a name, and optionally set a **4-digit PIN**. Names are unique, ignoring case ("kyle" and
-  "Kyle" can't both join). Joining closes at game 3's kickoff, since there's nothing left to pick.
+  "Kyle" can't both join). Joining closes at the last game's kickoff (game 3), since there's nothing left to pick.
 - **Logging in on any device:** pick your name from the list of players. If that name has a PIN, enter it. The
   PIN is checked by the sign-in service (see "How it's built"), which limits wrong guesses so a PIN can't be
   found by trying all 10,000.
@@ -131,9 +132,9 @@ The most anyone can score in one game is **37**, if they pick a safety correctly
 ### Overall (default view)
 - Shown at the top of `/thanksgiving` as soon as the first game kicks off.
 - One **running total across all 3 games**.
-- **Tiebreaker for the overall champion:** whoever's game 3 final-score guess (away + home) is closest to that
-  game's actual total points. No extra question needed. If that's still tied (equally close, or the tied
-  players didn't pick game 3's final score), they're **co-champions**.
+- **Tiebreaker for the overall champion:** whoever's final-score guess (away + home) for the last game (game 3)
+  is closest to that game's actual total points. No extra question needed. If that's still tied (equally close,
+  or the tied players didn't pick the last game's final score), they're **co-champions**.
 - Expand a player to see their points per game.
 
 ### Per-game scoreboard
@@ -299,7 +300,8 @@ Tests are written alongside the code and run in CI on every PR (a `test` job nex
    - missed kicks include blocked kicks but not failed 2-point tries
    - turnovers exclude turnovers on downs
    - projected (live) vs final status for each category
-   - the overall tiebreaker (closest game 3 total points), and co-champions when that's still tied
+   - the overall tiebreaker (closest total points in the last game: game 3, or game 2 of a two-game contest),
+     and co-champions when that's still tied
    - per-game co-winners when players tie on points
    - a 0–0 game (nobody gets "scores first" or "how the first score was made")
    - first TD scorer: a listed player's return TD counts as that player; an unlisted player's TD counts as
@@ -320,7 +322,7 @@ Tests are written alongside the code and run in CI on every PR (a `test` job nex
    - standings, the player list and revealed picks are readable without signing in; PINs never are
 4. **Sign-in service (Vitest):** joining with a name already taken (ignoring case) is refused; a wrong PIN is
    refused and repeated wrong guesses are slowed down; a right PIN signs in on a new device; players can add
-   or change their own PIN; joining closes at game 3's kickoff.
+   or change their own PIN; joining closes at the last game's kickoff.
 5. **First-TD-scorer list:** built from a recorded depth chart, it has each team's top 2 QBs, top 2 RBs, 3
    starting WRs and starting TE, and drops players ruled out or inactive. Run against recorded feeds, the
    pre-game refresh writes the games, lines, projections and averages, and leaves a game that has kicked off
@@ -333,6 +335,40 @@ Tests are written alongside the code and run in CI on every PR (a `test` job nex
 
 Before merging, PRs also get the built-in `/code-review`, plus `/security-review` for anything touching
 sign-in or Firestore rules.
+
+8. **Test contest** (see "Test contest"): the real contest's dates, ET days and collection names are exactly as
+   above, and a call without a contest runs it; the test contest uses only its own dates and tgTest*
+   collections (refresh, sign-in, live worker, admin); Test1–Test10 are created only in the test contest, once,
+   without PINs; their seed picks are valid, complete, stable, made once per game, never replace a person's
+   picks, never appear in the real contest, and are scored into the test standings; every Firestore rule is tested on the tgTest* collections too, and a player of one contest
+   can't write the other's picks; `/thanksgiving-test` loads with its TEST banner, and a test player can sign in
+   and pick (end-to-end, and a read-only smoke check after deploy).
+
+## Test contest
+
+A separate practice copy of the game, to try it with real NFL games before Thanksgiving. It's removed after
+Wednesday's game.
+
+- **Pages:** `/thanksgiving-test` and `/thanksgiving-test/admin`. The same app, with a **TEST** banner and
+  `noindex`. The admin is the same email address and sign-in as the real admin screen.
+- **Games:** every game on ESPN's 20261123 and 20261125 scoreboards that falls on Mon, Nov 23 or Wed, Nov 25 ET,
+  ordered by kickoff (CIN @ WSH, 8:15 PM ET Monday; GB @ LAR, 8:00 PM ET Wednesday). All the rules above apply,
+  with "the last game" being game 2.
+- **Data:** its own Firestore collections, prefixed `tgTest` (`tgTestGames`, `tgTestPlayers`, ...), with the same
+  rules as the real ones. Nothing in the test contest reads or writes a `tg*` collection of the real contest.
+  Its sign-ins are kept separate in the browser, so trying the test page never signs you out of the real one.
+- **Players:** **Test1** through **Test10**, without PINs, created by the test contest's pre-game refresh if
+  they're missing (anyone can pick one). Anyone can also join with their own name, as in the real game. The real
+  contest never gets these players.
+- **Seed picks:** so a practice game always has a leaderboard, the same refresh gives each of Test1–Test10 a full,
+  valid set of answers (varied, and the same every time for a player and game) for every test game they have no
+  picks for, including one that has already kicked off. Picks someone made while signed in as a test player are
+  never replaced. They're scored like anyone else's.
+- **Functions:** the same four functions; a call with `?contest=test` runs the test contest, a call without one
+  runs the real contest exactly as before, and any other contest is refused.
+- **Schedules (ET):** the test pre-game refresh runs hourly on Nov 23 and 25, and once after each deploy. Its live
+  worker runs every minute from 1 hour before each test game's kickoff until 1:00 AM (Mon 7:15 PM–Tue 12:59 AM;
+  Wed 7:00 PM–Thu 12:59 AM). They don't overlap the real contest's live worker (Thursday from noon).
 
 ## Build order
 

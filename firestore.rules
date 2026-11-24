@@ -13,14 +13,20 @@ rules_version = '2';
 //   tgLive, tgOverrides, tgAdminLog   the admin only: live values without the delay, overrides, log
 //   tgSecrets, tgNames, tgSeasonGames server only (PIN hashes, name index, stats cache)
 //
+// The test contest (docs/thanksgiving-spec.md, "Test contest") has the same collections with the
+// prefix tgTest (tgTestGames, tgTestPlayers, ...) and exactly the same rules: each rule below is a
+// function of the prefix, used once for 'tg' and once for 'tgTest'. A test player is a tgTestPlayers
+// doc, so it can't write real picks, and a real player can't write test picks.
+//
 // Every write outside picks goes through server functions (the admin's changes too, via tg-admin).
 // __ADMIN_EMAIL__ is replaced with the admin's address when Terraform deploys these rules
 // (infra/firebase.tf), so the address isn't in this public repo.
 // Tests: tests/emulator/rules.test.ts.
 service cloud.firestore {
   match /databases/{database}/documents {
-    function game(gameId) {
-      return get(/databases/$(database)/documents/tgGames/$(gameId)).data;
+    // p is the contest's collection prefix: 'tg' or 'tgTest'.
+    function game(p, gameId) {
+      return get(/databases/$(database)/documents/$(p + 'Games')/$(gameId)).data;
     }
 
     // Kyle, signed in with the emailed link (which verifies the address).
@@ -30,10 +36,10 @@ service cloud.firestore {
         && request.auth.token.email.lower() == '__ADMIN_EMAIL__';
     }
 
-    function isPlayer(playerId) {
+    function isPlayer(p, playerId) {
       return request.auth != null
         && request.auth.uid == playerId
-        && exists(/databases/$(database)/documents/tgPlayers/$(playerId));
+        && exists(/databases/$(database)/documents/$(p + 'Players')/$(playerId));
     }
 
     function intIn(a, k, lo, hi) {
@@ -74,20 +80,29 @@ service cloud.firestore {
         && intIn(a, 'sacks', 0, 30);
     }
 
+    // Your own picks any time; everyone's once the game has kicked off.
+    function canReadPicks(p, gameId, playerId) {
+      return (request.auth != null && request.auth.uid == playerId)
+        || request.time >= game(p, gameId).kickoff;
+    }
+
+    // Only your own, only before kickoff (server time), and only valid answers.
+    function canWritePicks(p, gameId, playerId) {
+      return isPlayer(p, playerId)
+        && request.time < game(p, gameId).kickoff
+        && request.resource.data.keys().hasOnly(['answers', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && validAnswers(request.resource.data.answers);
+    }
+
+    // --- The real contest (tg*) ---
+
     match /tgGames/{gameId} {
       allow read: if true;
 
       match /picks/{playerId} {
-        // Your own picks any time; everyone's once the game has kicked off.
-        allow read: if (request.auth != null && request.auth.uid == playerId)
-          || request.time >= game(gameId).kickoff;
-
-        // Only your own, only before kickoff (server time), and only valid answers.
-        allow create, update: if isPlayer(playerId)
-          && request.time < game(gameId).kickoff
-          && request.resource.data.keys().hasOnly(['answers', 'updatedAt'])
-          && request.resource.data.updatedAt == request.time
-          && validAnswers(request.resource.data.answers);
+        allow read: if canReadPicks('tg', gameId, playerId);
+        allow create, update: if canWritePicks('tg', gameId, playerId);
       }
     }
 
@@ -117,6 +132,45 @@ service cloud.firestore {
     }
 
     match /tgAdminLog/{entry} {
+      allow read: if isAdmin();
+    }
+
+    // --- The test contest (tgTest*): the same rules ---
+
+    match /tgTestGames/{gameId} {
+      allow read: if true;
+
+      match /picks/{playerId} {
+        allow read: if canReadPicks('tgTest', gameId, playerId);
+        allow create, update: if canWritePicks('tgTest', gameId, playerId);
+      }
+    }
+
+    match /tgTestPlayers/{playerId} {
+      allow read: if true;
+    }
+
+    match /tgTestMeta/{doc} {
+      allow read: if true;
+    }
+
+    match /tgTestResults/{gameId} {
+      allow read: if true;
+    }
+
+    match /tgTestStandings/{doc} {
+      allow read: if true;
+    }
+
+    match /tgTestLive/{gameId} {
+      allow read: if isAdmin();
+    }
+
+    match /tgTestOverrides/{gameId} {
+      allow read: if isAdmin();
+    }
+
+    match /tgTestAdminLog/{entry} {
       allow read: if isAdmin();
     }
   }

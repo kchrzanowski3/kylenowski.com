@@ -68,3 +68,26 @@ test('the admin page loads, and the admin service answers but refuses without a 
   expect(refused.status()).toBe(401);
 });
 
+
+// The test contest (docs/thanksgiving-spec.md, "Test contest"). Read-only too: it doesn't sign in.
+test('/thanksgiving-test loads with its TEST banner and the test games, with no console errors', async ({ page }) => {
+  const errors = watchConsole(page);
+  const res = await page.goto('/thanksgiving-test');
+  expect(res?.status()).toBe(200);
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+  await expect(page.getByTestId('tg-test-banner')).toContainText('TEST');
+  // The test pre-game refresh CI starts after the deploy may still be filling in the games.
+  const tabs = page.getByRole('navigation', { name: 'Games' }).getByRole('button');
+  await expect(tabs.first().or(page.getByText('The games will show up here shortly.'))).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('the sign-in service answers for the test contest', async ({ request }) => {
+  const res = await request.post(`${SIGN_IN_API}/login?contest=test`, { data: { playerId: 'smokeTestNobody' } });
+  expect(res.status()).toBe(404);
+  expect((await res.json()).error).toMatch(/doesn.t exist/);
+  const unknown = await request.post(`${SIGN_IN_API}/login?contest=nope`, { data: { playerId: 'smokeTestNobody' } });
+  expect(unknown.status()).toBe(404);
+  expect((await unknown.json()).error).toBe('Unknown contest.');
+});

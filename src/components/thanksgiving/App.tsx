@@ -2,6 +2,7 @@ import type { User } from 'firebase/auth';
 import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { getClients, watchUser, type Clients } from '../../lib/thanksgiving/client';
+import { REAL_CONTEST, col, contestById } from '../../lib/thanksgiving/config';
 import { isLocked } from '../../lib/thanksgiving/kickoff';
 import { toGame, type Game, type Player } from '../../lib/thanksgiving/view';
 import type { Standings as StandingsData } from '../../lib/thanksgiving/scoring';
@@ -21,7 +22,9 @@ function useNow(): number {
   return now;
 }
 
-export default function App() {
+/** `contest` is the page's contest id (config.ts); the real contest if not given. */
+export default function App({ contest: contestId }: { contest?: string }) {
+  const contest = contestById(contestId) ?? REAL_CONTEST;
   const [clients, setClients] = useState<Clients | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -33,27 +36,28 @@ export default function App() {
   const now = useNow();
 
   useEffect(() => {
-    getClients().then(setClients, (e: unknown) => setLoadError(String(e)));
-  }, []);
+    getClients(contest).then(setClients, (e: unknown) => setLoadError(String(e)));
+  }, [contest]);
 
   useEffect(() => {
     if (!clients) return;
+    const c = (name: Parameters<typeof col>[1]) => col(clients.contest, name);
     const offUser = watchUser(clients.auth, setUser);
     const offGames = onSnapshot(
-      query(collection(clients.db, 'tgGames'), orderBy('order')),
+      query(collection(clients.db, c('Games')), orderBy('order')),
       (snap) => setGames(snap.docs.map((d) => toGame(d.id, d.data())).filter((g): g is Game => g !== null)),
       (e) => setLoadError(`Couldn't load the games: ${e.message}`),
     );
     const offPlayers = onSnapshot(
-      query(collection(clients.db, 'tgPlayers'), orderBy('name')),
+      query(collection(clients.db, c('Players')), orderBy('name')),
       (snap) => setPlayers(snap.docs.map((d) => ({ id: d.id, name: d.get('name'), hasPin: !!d.get('hasPin') }))),
       (e) => setLoadError(`Couldn't load the players: ${e.message}`),
     );
     // Published scores (after the spoiler delay); public, so no sign-in needed.
-    const offResults = onSnapshot(collection(clients.db, 'tgResults'), (snap) =>
+    const offResults = onSnapshot(collection(clients.db, c('Results')), (snap) =>
       setResults(Object.fromEntries(snap.docs.map((d) => [d.id, { stats: d.get('stats'), score: d.get('score') } as GameResult]))),
     );
-    const offStandings = onSnapshot(doc(clients.db, 'tgStandings/overall'), (snap) =>
+    const offStandings = onSnapshot(doc(clients.db, `${c('Standings')}/overall`), (snap) =>
       setStandings(snap.exists() ? (snap.data() as StandingsData) : null),
     );
     return () => {

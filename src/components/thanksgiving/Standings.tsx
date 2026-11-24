@@ -13,6 +13,8 @@ interface Props {
 export function Standings({ standings, games, players, me }: Props) {
   const [open, setOpen] = useState<string | null>(null);
   const names = new Map(players.map((p) => [p.id, p.name]));
+  // The tiebreaker is the last game's final score (docs/thanksgiving-spec.md): game 3 on Thanksgiving.
+  const lastGame = `game ${games.length}`;
   if (!standings || standings.status === 'pre' || standings.rows.length === 0) {
     return (
       <section className="tg-card" aria-labelledby="tg-standings-title">
@@ -52,7 +54,7 @@ export function Standings({ standings, games, players, me }: Props) {
                       {g.away.abbr} @ {g.home.abbr}: <strong>{r.byGame[g.id] ?? 0}</strong>
                     </li>
                   ))}
-                  {r.tiebreak !== null && <li className="muted">Tiebreaker: game 3 total points off by {r.tiebreak}</li>}
+                  {r.tiebreak !== null && <li className="muted">Tiebreaker: {lastGame} total points off by {r.tiebreak}</li>}
                 </ul>
               )}
             </li>
@@ -60,7 +62,7 @@ export function Standings({ standings, games, players, me }: Props) {
         })}
       </ol>
       <p className="muted tg-small">
-        Ties for first are broken by whose game 3 final-score guess (both teams added) is closest to that game's total
+        Ties for first are broken by whose {lastGame} final-score guess (both teams added) is closest to that game's total
         points{tiedAtTop ? '; if that is tied too, they are co-champions' : ''}. Tap a name for points per game.
       </p>
     </section>

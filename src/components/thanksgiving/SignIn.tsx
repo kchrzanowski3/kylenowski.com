@@ -37,14 +37,14 @@ export function SignIn({ clients, players, joinOpen, signedInElsewhere }: Props)
     setError(null);
     setPin('');
     if (p.hasPin) setChosen(p);
-    else void run(() => login(clients.auth, p.id, ''));
+    else void run(() => login(clients, p.id, ''));
   }
 
   function submitPin(e: { preventDefault(): void }) {
     e.preventDefault();
     if (!chosen) return;
     if (!isValidPin(pin)) return setError('A PIN is 4 digits.');
-    void run(() => login(clients.auth, chosen.id, pin));
+    void run(() => login(clients, chosen.id, pin));
   }
 
   function submitJoin(e: { preventDefault(): void }) {
@@ -52,7 +52,7 @@ export function SignIn({ clients, players, joinOpen, signedInElsewhere }: Props)
     const problem = nameProblem(name);
     if (problem) return setError(problem);
     if (newPin && !isValidPin(newPin)) return setError('A PIN is 4 digits (or leave it empty).');
-    void run(() => join(clients.auth, name, newPin));
+    void run(() => join(clients, name, newPin));
   }
 
   return (

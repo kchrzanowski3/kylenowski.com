@@ -6,6 +6,7 @@ import { randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { Auth } from 'firebase-admin/auth';
 import { FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore';
+import { REAL_CONTEST, col, type Contest } from '../../src/lib/thanksgiving/config';
 import { cleanName, isValidPin, nameKey, nameProblem, pinLockMs } from '../../src/lib/thanksgiving/players';
 
 const scrypt = promisify(scryptCb) as (pin: string, salt: Buffer, len: number) => Promise<Buffer>;
@@ -40,9 +41,9 @@ async function pinMatches(pin: string, secret: SecretDoc): Promise<boolean> {
   return timingSafeEqual(want, got);
 }
 
-/** Joining closes at the last game's kickoff (game 3), since there's nothing left to pick. */
-export async function joinClosesAt(db: Firestore): Promise<number | null> {
-  const games = await db.collection('tgGames').get();
+/** Joining closes at the last game's kickoff, since there's nothing left to pick. */
+export async function joinClosesAt(db: Firestore, contest: Contest = REAL_CONTEST): Promise<number | null> {
+  const games = await db.collection(col(contest, 'Games')).get();
   let last: number | null = null;
   for (const g of games.docs) {
     const k = g.get('kickoff') as Timestamp | undefined;
@@ -56,6 +57,7 @@ export async function joinPlayer(
   auth: Auth,
   input: { name?: unknown; pin?: unknown },
   now: number,
+  contest: Contest = REAL_CONTEST,
 ): Promise<{ playerId: string; name: string; token: string }> {
   if (typeof input.name !== 'string') throw new AuthError(400, 'Type a name.');
   const problem = nameProblem(input.name);
@@ -63,24 +65,47 @@ export async function joinPlayer(
   const pin = input.pin === undefined || input.pin === null || input.pin === '' ? null : input.pin;
   if (pin !== null && !isValidPin(pin)) throw new AuthError(400, 'A PIN is 4 digits.');
 
-  const closes = await joinClosesAt(db);
+  const closes = await joinClosesAt(db, contest);
   if (closes !== null && now >= closes) throw new AuthError(403, 'Joining is closed: every game has kicked off.');
 
   const name = cleanName(input.name);
-  const nameRef = db.collection('tgNames').doc(nameKey(name));
-  const playerRef = db.collection('tgPlayers').doc();
-  const secretRef = db.collection('tgSecrets').doc(playerRef.id);
   const hashed = pin ? await hashPin(pin) : { pinHash: null, salt: null };
+  const playerId = await createPlayer(db, contest, name, hashed, now);
+  if (playerId === null) throw new AuthError(409, `"${name}" is taken. If that's you, pick it from the list of players.`);
+  return { playerId, name, token: await auth.createCustomToken(playerId) };
+}
 
-  await db.runTransaction(async (tx) => {
+/** Creates a player (name index, public player doc, secret) unless the name is taken. Null if taken. */
+async function createPlayer(
+  db: Firestore,
+  contest: Contest,
+  name: string,
+  hashed: { pinHash: string | null; salt: string | null },
+  now: number,
+): Promise<string | null> {
+  const nameRef = db.collection(col(contest, 'Names')).doc(nameKey(name));
+  const playerRef = db.collection(col(contest, 'Players')).doc();
+  const secretRef = db.collection(col(contest, 'Secrets')).doc(playerRef.id);
+  const created = await db.runTransaction(async (tx) => {
     const taken = await tx.get(nameRef);
-    if (taken.exists) throw new AuthError(409, `"${name}" is taken. If that's you, pick it from the list of players.`);
+    if (taken.exists) return false;
     tx.create(nameRef, { playerId: playerRef.id });
-    tx.create(playerRef, { name, hasPin: pin !== null, joinedAt: Timestamp.fromMillis(now) });
+    tx.create(playerRef, { name, hasPin: hashed.pinHash !== null, joinedAt: Timestamp.fromMillis(now) });
     tx.create(secretRef, { ...hashed, failures: 0, lockedUntil: null } satisfies SecretDoc);
+    return true;
   });
+  return created ? playerRef.id : null;
+}
 
-  return { playerId: playerRef.id, name, token: await auth.createCustomToken(playerRef.id) };
+/**
+ * Makes sure a seed player (Contest.seedPlayers, test contest only) exists, without a PIN. True if
+ * it was created. Refuses the real contest, which never gets seed players.
+ */
+export async function ensurePlayer(db: Firestore, contest: Contest, name: string, now: number): Promise<boolean> {
+  if (contest.id === REAL_CONTEST.id || !contest.seedPlayers.includes(name)) {
+    throw new Error(`"${name}" isn't a seed player of the ${contest.id} contest`);
+  }
+  return (await createPlayer(db, contest, name, { pinHash: null, salt: null }, now)) !== null;
 }
 
 export async function loginPlayer(
@@ -88,12 +113,13 @@ export async function loginPlayer(
   auth: Auth,
   input: { playerId?: unknown; pin?: unknown },
   now: number,
+  contest: Contest = REAL_CONTEST,
 ): Promise<{ token: string }> {
   if (typeof input.playerId !== 'string' || !/^[A-Za-z0-9]{1,40}$/.test(input.playerId)) {
     throw new AuthError(400, 'Pick your name from the list.');
   }
-  const playerRef = db.collection('tgPlayers').doc(input.playerId);
-  const secretRef = db.collection('tgSecrets').doc(input.playerId);
+  const playerRef = db.collection(col(contest, 'Players')).doc(input.playerId);
+  const secretRef = db.collection(col(contest, 'Secrets')).doc(input.playerId);
 
   // A wrong PIN is recorded in the same transaction that checks it, so guesses can't skip the count.
   type Outcome = 'ok' | { kind: 'locked'; sec: number } | { kind: 'wrong'; sec: number };
@@ -129,7 +155,13 @@ export async function loginPlayer(
 }
 
 /** A signed-in player adds or changes their own PIN. */
-export async function setPin(db: Firestore, auth: Auth, idToken: unknown, pin: unknown): Promise<void> {
+export async function setPin(
+  db: Firestore,
+  auth: Auth,
+  idToken: unknown,
+  pin: unknown,
+  contest: Contest = REAL_CONTEST,
+): Promise<void> {
   if (typeof idToken !== 'string' || idToken === '') throw new AuthError(401, 'Sign in first.');
   let uid: string;
   try {
@@ -138,8 +170,8 @@ export async function setPin(db: Firestore, auth: Auth, idToken: unknown, pin: u
     throw new AuthError(401, 'Sign in again.');
   }
   if (!isValidPin(pin)) throw new AuthError(400, 'A PIN is 4 digits.');
-  const playerRef = db.collection('tgPlayers').doc(uid);
-  const secretRef = db.collection('tgSecrets').doc(uid);
+  const playerRef = db.collection(col(contest, 'Players')).doc(uid);
+  const secretRef = db.collection(col(contest, 'Secrets')).doc(uid);
   const hashed = await hashPin(pin);
   await db.runTransaction(async (tx) => {
     const player = await tx.get(playerRef);

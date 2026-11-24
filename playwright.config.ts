@@ -25,7 +25,15 @@ export default defineConfig({
     trace: 'off',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'phone', use: { ...devices['Pixel 7'] } }],
+  projects: [
+    {
+      name: 'phone',
+      use: {
+        ...devices['Pixel 7'],
+        ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}),
+      },
+    },
+  ],
   // `npm run test:e2e` builds the site and the function first; the servers are started directly
   // with node (no npm/npx wrapper) so Playwright can stop them cleanly afterwards.
   webServer: [

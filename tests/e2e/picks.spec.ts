@@ -64,9 +64,7 @@ async function join(page: Page, name: string, pin = '') {
 }
 
 test('join, pick, sign in on another phone, lock at kickoff, reveal', async ({ browser }) => {
-  const LOCK_IN = 45_000;
-  await seed(LOCK_IN);
-  const lockAt = Date.now() + LOCK_IN;
+  await seed(120_000);
 
   // Alice joins with a PIN and makes some picks for game 1.
   const alice = await (await browser.newContext()).newPage();
@@ -133,7 +131,10 @@ test('join, pick, sign in on another phone, lock at kickoff, reveal', async ({ b
   // Before kickoff, Bob's view shows no one else's picks.
   await expect(bob.getByTestId('tg-reveal')).toHaveCount(0);
 
-  // Kickoff: picks lock and everyone's are revealed, without a refresh.
+  // Kickoff: move kickoff 2s ahead so every open browser receives the update before the 1s clock
+  // tick, then verify picks lock and everyone's are revealed without a refresh.
+  const lockAt = Date.now() + 2_000;
+  await db.doc('tgGames/g1').update({ kickoff: Timestamp.fromMillis(lockAt) });
   await alice.waitForTimeout(Math.max(0, lockAt - Date.now()));
   for (const page of [alice, bob, carol]) {
     // A green lock (the game is on) on its tab and in the game's header.

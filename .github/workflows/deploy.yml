@@ -1,11 +1,12 @@
 name: deploy
 
-# PRs to main:    build, tests, security review, terraform plan (read-only), Firebase Hosting preview
-#                 channel, and read-only runtime security checks against the preview URL.
-# Pushes to main: build, tests, security review, terraform apply, deploy dist/ to the live site.
-# Nothing is applied or deployed unless the tests and security gate pass. After a production deploy,
-# read-only smoke + security tests check the live site, and the merged PR gets a comment saying
-# whether it all worked.
+# PRs to main:    build + unit tests, emulator tests, e2e tests, security review, terraform plan
+#                 (read-only), Firebase Hosting preview channel, and runtime security checks against
+#                 the preview URL (all parallelized).
+# Pushes to main: build + unit tests, emulator tests, e2e tests, security review -> terraform apply
+#                 -> deploy dist/ to the live site -> live smoke + security tests -> comment on the
+#                 merged PR.
+# Nothing is applied or deployed to production unless all tests and the security gate pass.
 on:
   push:
     branches: [main]
@@ -13,10 +14,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# One run at a time per branch/PR. Applies only happen on main, and GCS locks state.
+# Cancel superseded PR runs immediately; never cancel in-progress deploys on main (GCS locks state).
 concurrency:
   group: deploy-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -33,7 +34,6 @@ env:
   GCP_DEPLOYER_SA: ci-deployer@kylenowski-com.iam.gserviceaccount.com
   GCP_READER_SA: ci-reader@kylenowski-com.iam.gserviceaccount.com
   GCP_PREVIEW_SA: ci-preview@kylenowski-com.iam.gserviceaccount.com
-  IS_DEPLOY: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
 
 jobs:
   build:
@@ -46,17 +46,27 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm ci
-      - run: npm run build # astro check + astro build
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Build site
+        run: npm run build # astro check + astro build
+      - name: Build Cloud Functions bundle
+        run: npm run build:functions
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: dist
           path: dist
           retention-days: 7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: functions-dist
+          path: functions/dist
+          retention-days: 1
 
-  # docs/thanksgiving-spec.md, "Testing". Unit tests, then the Firestore rules, sign-in service and
-  # pre-game refresh against the Firebase emulators, then end-to-end in a browser.
-  test:
+  # docs/thanksgiving-spec.md, "Testing". Firestore rules, sign-in service, admin, live worker,
+  # practice games, and pre-game refresh against the Firebase emulators.
+  test-emulator:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -74,13 +84,34 @@ jobs:
         with:
           path: ~/.cache/firebase/emulators
           key: firebase-emulators-${{ hashFiles('package-lock.json') }}
-      - run: npm ci
-      - name: Unit tests
-        run: npm run test:unit
+      - run: npm ci --prefer-offline --no-audit --no-fund
       - name: Emulator tests (rules, sign-in service, pre-game refresh)
         run: npm run test:emulator
-      - run: npx playwright install --with-deps chromium
+
+  # docs/thanksgiving-spec.md, "Testing". End-to-end in a browser against local emulators.
+  test-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5 # the Firestore emulator runs on Java
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ hashFiles('package-lock.json') }}
+      - run: npm ci --prefer-offline --no-audit --no-fund
       - name: End-to-end tests
+        env:
+          # ubuntu-latest ships Google Chrome preinstalled, avoiding ~20s of apt-get + browser downloads.
+          PLAYWRIGHT_CHANNEL: chrome
         run: npm run test:e2e
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
@@ -89,7 +120,7 @@ jobs:
           path: playwright-report
           retention-days: 7
 
-  # Fast security review gate (runs in parallel with build and test, gates infra and hosting):
+  # Fast security review gate (runs in parallel with build and tests, gates production deploys):
   #   - Blocking (PRs + main): secrets (Gitleaks), high/critical SAST (Semgrep), high/critical IaC
   #     (Trivy), workflow security & shell linting (zizmor, actionlint, shellcheck).
   #   - Blocking (PRs only): newly introduced high/critical CVEs (dependency-review-action), so a
@@ -236,8 +267,10 @@ jobs:
           actionlint -color=false
           shellcheck scripts/*.sh
 
-  infra:
-    needs: [test, security]
+  # Read-only Terraform plan on PRs (and non-main dispatches), running in parallel with tests.
+  infra-plan:
+    needs: [build]
+    if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -253,50 +286,38 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-
-      # Terraform zips functions/dist (infra/thanksgiving.tf), so build it before planning.
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          node-version-file: .nvmrc
-          cache: npm
-      - name: Build Cloud Functions bundle
-        working-directory: .
-        run: npm ci && npm run build:functions
+          name: functions-dist
+          path: functions/dist
 
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
-          service_account: ${{ env.IS_DEPLOY == 'true' && env.GCP_DEPLOYER_SA || env.GCP_READER_SA }}
+          service_account: ${{ env.GCP_READER_SA }}
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
 
-      - run: terraform fmt -check -recursive
-
-      # Before the first apply there is no state, and creating it needs write
-      # access that ci-reader doesn't have. Plan against an empty local state
-      # instead, which is exactly what the first apply starts from.
-      - name: Use empty state if none exists yet (PRs)
-        if: env.IS_DEPLOY != 'true'
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/terraform-plugin-cache
+          key: terraform-providers-${{ runner.os }}-${{ hashFiles('infra/.terraform.lock.hcl') }}
+      - name: Enable Terraform plugin cache
         run: |
-          if ! out="$(gcloud storage objects describe gs://kylenowski-com-tfstate/site/default.tfstate 2>&1)"; then
-            if grep -qiE 'not ?found|404' <<<"$out"; then
-              printf 'terraform {\n  backend "local" {}\n}\n' > backend_override.tf
-              echo "::notice::No Terraform state yet (first deploy): planning against an empty state."
-            else
-              echo "$out" >&2; exit 1
-            fi
-          fi
+          mkdir -p "$RUNNER_TEMP/terraform-plugin-cache"
+          echo "TF_PLUGIN_CACHE_DIR=$RUNNER_TEMP/terraform-plugin-cache" >> "$GITHUB_ENV"
 
+      - run: terraform fmt -check -recursive
       - run: terraform init -input=false
       - run: terraform validate
 
       # PR plans run as the read-only ci-reader, which can't write the state
       # lock, so they skip locking (a plan never writes state anyway).
       - name: terraform plan
-        run: terraform plan -input=false -out=tfplan ${{ env.IS_DEPLOY == 'true' && '-lock-timeout=5m' || '-lock=false' }}
+        run: terraform plan -input=false -out=tfplan -lock=false
 
       - name: Plan summary
         if: always()
@@ -310,20 +331,79 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: terraform apply (main only)
-        if: env.IS_DEPLOY == 'true'
+  # Production Terraform apply on main, strictly gated behind all build, test, and security jobs.
+  infra-apply:
+    needs: [build, test-emulator, test-e2e, security]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC token -> GCP Workload Identity Federation (no keys)
+    defaults:
+      run:
+        working-directory: infra
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      # The Thanksgiving admin's email address: a sensitive Terraform variable, so it's hidden in plans.
+      TF_VAR_admin_email: ${{ secrets.TG_ADMIN_EMAIL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: functions-dist
+          path: functions/dist
+
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ env.GCP_DEPLOYER_SA }}
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/terraform-plugin-cache
+          key: terraform-providers-${{ runner.os }}-${{ hashFiles('infra/.terraform.lock.hcl') }}
+      - name: Enable Terraform plugin cache
+        run: |
+          mkdir -p "$RUNNER_TEMP/terraform-plugin-cache"
+          echo "TF_PLUGIN_CACHE_DIR=$RUNNER_TEMP/terraform-plugin-cache" >> "$GITHUB_ENV"
+
+      - run: terraform fmt -check -recursive
+      - run: terraform init -input=false
+      - run: terraform validate
+
+      - name: terraform plan
+        run: terraform plan -input=false -out=tfplan -lock-timeout=5m
+
+      - name: Plan summary
+        if: always()
+        run: |
+          if [ -f tfplan ]; then
+            {
+              echo '### Terraform plan'
+              echo '```'
+              terraform show -no-color tfplan | tail -c 60000
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: terraform apply
         run: terraform apply -input=false -lock-timeout=5m tfplan
 
       # Fill in the games, lines, scorer lists and averages right away instead of waiting for the
       # next scheduled run (infra/thanksgiving.tf).
-      - name: Run the pre-game refresh once (main only)
-        if: env.IS_DEPLOY == 'true'
+      - name: Run the pre-game refresh once
         run: |
           gcloud scheduler jobs run tg-pregame-daily --location us-central1 --project "$GCP_PROJECT_ID"
           echo "Started the pre-game refresh (tg-pregame-daily)." >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Outputs summary (main only)
-        if: env.IS_DEPLOY == 'true'
+      - name: Outputs summary
         run: |
           {
             echo '### Terraform outputs'
@@ -332,13 +412,14 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  hosting:
-    needs: [build, test, security, infra]
+  # PR preview channel: deploys as soon as build finishes, in parallel with tests and infra-plan.
+  hosting-preview:
+    needs: [build]
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # Shows in the repo's Deployments panel and on the PR: "preview" for PRs, "production" for main.
     environment:
-      name: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
-      url: ${{ steps.preview.outputs.url || 'https://kylenowski.com' }}
+      name: preview
+      url: ${{ steps.preview.outputs.url }}
     outputs:
       url: ${{ steps.preview.outputs.url }}
     permissions:
@@ -346,7 +427,7 @@ jobs:
       id-token: write # GCP login (Workload Identity Federation)
       pull-requests: write # put the preview link in the PR description
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7 # for firebase.json
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7 # for firebase.json and scripts/pr-preview-body.mjs
         with:
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -356,24 +437,29 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
+      - name: Cache firebase-tools
+        id: firebase-cli
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/firebase-cli
+          key: firebase-cli-${{ runner.os }}-${{ env.FIREBASE_TOOLS }}
+      - name: Install firebase-tools
+        if: steps.firebase-cli.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.cache/firebase-cli
+          npm --prefix ~/.cache/firebase-cli install --no-save --no-audit --no-fund "$FIREBASE_TOOLS"
 
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
-          service_account: ${{ env.IS_DEPLOY == 'true' && env.GCP_DEPLOYER_SA || env.GCP_PREVIEW_SA }}
+          service_account: ${{ env.GCP_PREVIEW_SA }}
 
-      - name: Deploy live site (main only)
-        if: env.IS_DEPLOY == 'true'
-        run: |
-          npx --yes "$FIREBASE_TOOLS" deploy --only hosting --project "$GCP_PROJECT_ID" \
-            --non-interactive --message "${GITHUB_SHA::7}"
-          echo "### Deployed ${GITHUB_SHA::7} to https://kylenowski.com" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Deploy preview channel (PRs)
+      - name: Deploy preview channel
         id: preview
-        if: github.event_name == 'pull_request'
+        env:
+          PR_NUMBER: ${{ github.event.number }}
         run: |
-          npx --yes "$FIREBASE_TOOLS" hosting:channel:deploy "pr-${{ github.event.number }}" \
+          "$HOME/.cache/firebase-cli/node_modules/.bin/firebase" hosting:channel:deploy "pr-$PR_NUMBER" \
             --expires 7d --no-authorized-domains --project "$GCP_PROJECT_ID" --non-interactive --json > channel.json || { cat channel.json; exit 1; }
           url="$(jq -r '.result[].url' channel.json)"
           echo "### Preview: $url" >> "$GITHUB_STEP_SUMMARY"
@@ -383,8 +469,7 @@ jobs:
       # Keeps one block at the top of the PR description, replaced on every push: the preview link
       # and one-click links to the pages whose built HTML differs from the live site
       # (scripts/pr-preview-body.mjs).
-      - name: Put the preview links at the top of the PR description (PRs)
-        if: github.event_name == 'pull_request'
+      - name: Put the preview links at the top of the PR description
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -400,7 +485,7 @@ jobs:
 
   # Read-only runtime security assertions against the PR preview channel (headers, CSP, CORS, auth).
   preview-security:
-    needs: [hosting]
+    needs: [hosting-preview]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -410,12 +495,30 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
+      - name: Read Playwright version
+        id: pw
+        run: |
+          version=$(node -p "require('./package.json').devDependencies['@playwright/test']")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Cache @playwright/test
+        id: pw-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/playwright-smoke
+          key: playwright-smoke-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install @playwright/test
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        env:
+          PW_VERSION: ${{ steps.pw.outputs.version }}
+        run: |
+          mkdir -p ~/.cache/playwright-smoke
+          npm --prefix ~/.cache/playwright-smoke install --no-save --no-audit --no-fund "@playwright/test@$PW_VERSION"
       - name: Runtime security assertions against PR preview channel
         env:
-          SMOKE_URL: ${{ needs.hosting.outputs.url }}
-        run: npm run test:security-smoke
+          SMOKE_URL: ${{ needs.hosting-preview.outputs.url }}
+        run: |
+          ln -s "$HOME/.cache/playwright-smoke/node_modules" node_modules
+          npm run test:security-smoke
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
@@ -423,11 +526,56 @@ jobs:
           path: playwright-report-smoke
           retention-days: 7
 
+  # Live production site deploy: strictly after all tests, security review, and Terraform apply pass.
+  hosting-live:
+    needs: [build, test-emulator, test-e2e, security, infra-apply]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://kylenowski.com
+    permissions:
+      contents: read
+      id-token: write # GCP login (Workload Identity Federation)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7 # for firebase.json
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: dist
+          path: dist
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+      - name: Cache firebase-tools
+        id: firebase-cli
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/firebase-cli
+          key: firebase-cli-${{ runner.os }}-${{ env.FIREBASE_TOOLS }}
+      - name: Install firebase-tools
+        if: steps.firebase-cli.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.cache/firebase-cli
+          npm --prefix ~/.cache/firebase-cli install --no-save --no-audit --no-fund "$FIREBASE_TOOLS"
+
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ env.GCP_DEPLOYER_SA }}
+
+      - name: Deploy live site
+        run: |
+          "$HOME/.cache/firebase-cli/node_modules/.bin/firebase" deploy --only hosting --project "$GCP_PROJECT_ID" \
+            --non-interactive --message "${GITHUB_SHA::7}"
+          echo "### Deployed ${GITHUB_SHA::7} to https://kylenowski.com" >> "$GITHUB_STEP_SUMMARY"
+
   # Read-only checks against the live site after a production deploy (tests/smoke): the pages load
   # without console errors, security headers/CSP/CORS/auth hold, the app reaches Firestore, and the
   # sign-in service answers.
   smoke:
-    needs: [hosting]
+    needs: [hosting-live]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -437,11 +585,30 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - name: Read Playwright version
+        id: pw
+        run: |
+          version=$(node -p "require('./package.json').devDependencies['@playwright/test']")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Cache @playwright/test
+        id: pw-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/playwright-smoke
+          key: playwright-smoke-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install @playwright/test
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        env:
+          PW_VERSION: ${{ steps.pw.outputs.version }}
+        run: |
+          mkdir -p ~/.cache/playwright-smoke
+          npm --prefix ~/.cache/playwright-smoke install --no-save --no-audit --no-fund "@playwright/test@$PW_VERSION"
       - name: Smoke & security tests against https://kylenowski.com
-        run: npm run test:smoke
+        env:
+          PLAYWRIGHT_CHANNEL: chrome
+        run: |
+          ln -s "$HOME/.cache/playwright-smoke/node_modules" node_modules
+          npm run test:smoke
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
@@ -451,7 +618,7 @@ jobs:
 
   # Tells the merged PR whether the deploy worked, so a failure after merging isn't missed.
   report:
-    needs: [build, test, security, infra, hosting, smoke]
+    needs: [build, test-emulator, test-e2e, security, infra-apply, hosting-live, smoke]
     if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -464,22 +631,24 @@ jobs:
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
-          TEST: ${{ needs.test.result }}
           BUILD: ${{ needs.build.result }}
+          EMULATOR: ${{ needs.test-emulator.result }}
+          E2E: ${{ needs.test-e2e.result }}
           SECURITY: ${{ needs.security.result }}
-          INFRA: ${{ needs.infra.result }}
-          HOSTING: ${{ needs.hosting.result }}
+          INFRA: ${{ needs.infra-apply.result }}
+          HOSTING: ${{ needs.hosting-live.result }}
           SMOKE: ${{ needs.smoke.result }}
         run: |
           icon() { case "$1" in success) echo "✅";; skipped) echo "⏭️";; cancelled) echo "⚪";; *) echo "❌";; esac; }
-          if [ "$TEST$BUILD$SECURITY$INFRA$HOSTING$SMOKE" = "successsuccesssuccesssuccesssuccesssuccess" ]; then
+          if [ "$BUILD$EMULATOR$E2E$SECURITY$INFRA$HOSTING$SMOKE" = "successsuccesssuccesssuccesssuccesssuccesssuccess" ]; then
             head="✅ **Deployed to [kylenowski.com](https://kylenowski.com)** (${SHA::7}), and the live smoke tests passed."
           else
             head="❌ **Deploy of ${SHA::7} did not finish.** The live site may still be on the previous version. [See the run]($RUN_URL)."
           fi
-          body="$(printf '%s\n\n| Step | Result |\n|---|---|\n| Tests | %s %s |\n| Build | %s %s |\n| Security review | %s %s |\n| Infra (Terraform apply) | %s %s |\n| Live site upload | %s %s |\n| Smoke & security tests on the live site | %s %s |\n\n[Run](%s)' \
-            "$head" "$(icon "$TEST")" "$TEST" "$(icon "$BUILD")" "$BUILD" "$(icon "$SECURITY")" "$SECURITY" \
-            "$(icon "$INFRA")" "$INFRA" "$(icon "$HOSTING")" "$HOSTING" "$(icon "$SMOKE")" "$SMOKE" "$RUN_URL")"
+          body="$(printf '%s\n\n| Step | Result |\n|---|---|\n| Build & unit tests | %s %s |\n| Emulator tests | %s %s |\n| End-to-end tests | %s %s |\n| Security review | %s %s |\n| Infra (Terraform apply) | %s %s |\n| Live site upload | %s %s |\n| Smoke & security tests on the live site | %s %s |\n\n[Run](%s)' \
+            "$head" "$(icon "$BUILD")" "$BUILD" "$(icon "$EMULATOR")" "$EMULATOR" "$(icon "$E2E")" "$E2E" \
+            "$(icon "$SECURITY")" "$SECURITY" "$(icon "$INFRA")" "$INFRA" "$(icon "$HOSTING")" "$HOSTING" \
+            "$(icon "$SMOKE")" "$SMOKE" "$RUN_URL")"
           echo "$body" >> "$GITHUB_STEP_SUMMARY"
           for pr in $(gh api "repos/$REPO/commits/$SHA/pulls" --jq '.[].number'); do
             gh api "repos/$REPO/issues/$pr/comments" -f body="$body" > /dev/null

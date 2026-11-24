@@ -1,6 +1,6 @@
 // Small inline icons (no icon font or image requests).
 import { useState } from 'react';
-import { teamLogo, type GamePhase } from '../../lib/thanksgiving/view';
+import { splitTeams, teamLogo, type GamePhase } from '../../lib/thanksgiving/view';
 import type { TeamInfo } from '../../lib/thanksgiving/types';
 
 const PHASE_LABEL: Record<GamePhase, string> = { open: 'Open', live: 'Locked, in progress', final: 'Final' };
@@ -37,20 +37,37 @@ export function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-/** A team's logo from ESPN; hidden if it can't be loaded, since the abbreviation is always shown too. */
-export function TeamLogo({ team, size = 28 }: { team: TeamInfo; size?: number }) {
+/**
+ * A team's logo from ESPN. Where the abbreviation is shown next to it, the logo is decorative and is
+ * hidden if it can't be loaded; with `standIn`, the logo stands in for the abbreviation (its alt
+ * text), which is shown instead if the logo can't be loaded.
+ */
+export function TeamLogo({ team, size = 28, standIn = false }: { team: TeamInfo; size?: number; standIn?: boolean }) {
   const [failed, setFailed] = useState(false);
-  if (failed) return null;
+  if (failed) return standIn ? <span className="tg-logo-fallback">{team.abbr}</span> : null;
   return (
     <img
       className="tg-logo"
       src={teamLogo(team.abbr)}
-      alt=""
+      alt={standIn ? team.abbr : ''}
+      title={standIn ? team.name : undefined}
       width={size}
       height={size}
       loading="lazy"
       decoding="async"
       onError={() => setFailed(true)}
     />
+  );
+}
+
+/** Text with the game's team abbreviations ("CIN 17 – WSH 19", "WSH ahead") shown as logos. */
+export function TeamText({ text, teams, size = 22 }: { text: string; teams: TeamInfo[]; size?: number }) {
+  const byAbbr = new Map(teams.map((t) => [t.abbr, t]));
+  return (
+    <span className="tg-team-text">
+      {splitTeams(text, teams.map((t) => t.abbr)).map((part, i) =>
+        'team' in part ? <TeamLogo key={i} team={byAbbr.get(part.team)!} size={size} standIn /> : <span key={i}>{part.text}</span>,
+      )}
+    </span>
   );
 }

@@ -9,6 +9,10 @@ import {
   defaultPickerPlayer,
   gamePhase,
   pickerPlayers,
+  lockedPoints,
+  rankStandings,
+  rowLocked,
+  splitTeams,
   rowLost,
   rowPoints,
   shortWorth,
@@ -145,5 +149,71 @@ describe("a player's picks: settled rows they lost are greyed out", () => {
   it('a row with no category behind it (or not scored yet) is never greyed', () => {
     expect(rowLost(cats, 'sacks', 'a')).toBe(false);
     expect(rowLost([], 'firstTeam', 'a')).toBe(false);
+  });
+});
+
+describe('locked vs live points', () => {
+  const cats: { key: string; status: string; points: Record<string, number> }[] = [
+    { key: 'firstTeam', status: 'final', points: { a: 1 } },
+    { key: 'punts', status: 'live', points: { b: 3 } },
+    { key: 'finalClosest', status: 'live', points: { a: 3 } },
+    { key: 'finalWinner', status: 'final', points: { a: 1 } },
+    { key: 'finalWithin15', status: 'final', points: {} },
+  ];
+  it("a pick's points are locked only when every category behind it is final", () => {
+    expect(rowLocked(cats, 'firstTeam')).toBe(true);
+    expect(rowLocked(cats, 'punts')).toBe(false);
+    expect(rowLocked(cats, 'final')).toBe(false); // one of the three final-score categories is still live
+    expect(rowLocked(cats, 'sacks')).toBe(false); // not scored
+  });
+
+  it('locked points count final categories across every game; live ones do not', () => {
+    const results = {
+      g1: { score: { categories: cats } },
+      g2: { score: { categories: [{ key: 'sacks', status: 'final', points: { b: 3, a: 3 } }] } },
+      g3: undefined,
+    };
+    expect(lockedPoints(results)).toEqual({ a: 5, b: 3 });
+  });
+
+  it('standings are ordered by locked points, then live points; equal on both share a rank', () => {
+    const rows = [
+      { playerId: 'a', rank: 1, total: 12 },
+      { playerId: 'b', rank: 2, total: 9 },
+      { playerId: 'c', rank: 2, total: 9 },
+      { playerId: 'd', rank: 4, total: 4 },
+    ];
+    const ranked = rankStandings(rows, { a: 2, b: 6, c: 6, d: 6 }, false);
+    expect(ranked.map((r) => [r.playerId, r.rank, r.locked, r.live])).toEqual([
+      ['b', 1, 6, 9],
+      ['c', 1, 6, 9],
+      ['d', 3, 6, 4],
+      ['a', 4, 2, 12],
+    ]);
+  });
+
+  it('once every game is final, locked = live and the published order (with the tiebreaker) stands', () => {
+    const rows = [
+      { playerId: 'a', rank: 1, total: 9 },
+      { playerId: 'b', rank: 2, total: 9 }, // lost the tiebreaker
+    ];
+    expect(rankStandings(rows, {}, true)).toEqual([
+      { playerId: 'a', rank: 1, locked: 9, live: 9 },
+      { playerId: 'b', rank: 2, locked: 9, live: 9 },
+    ]);
+  });
+});
+
+describe('team logos in text (full-screen scoreboard)', () => {
+  it('splits out whole-word team abbreviations', () => {
+    expect(splitTeams('CIN 17 – WSH 19', ['CIN', 'WSH'])).toEqual([{ team: 'CIN' }, { text: ' 17 – ' }, { team: 'WSH' }, { text: ' 19' }]);
+    expect(splitTeams('WSH ahead', ['CIN', 'WSH'])).toEqual([{ team: 'WSH' }, { text: ' ahead' }]);
+    expect(splitTeams('CIN (2–0)', ['CIN', 'WSH'])).toEqual([{ team: 'CIN' }, { text: ' (2–0)' }]);
+  });
+  it('leaves other text alone, including abbreviations inside words', () => {
+    expect(splitTeams('No (so far)', ['CIN', 'WSH'])).toEqual([{ text: 'No (so far)' }]);
+    expect(splitTeams('Tee Higgins', ['CIN', 'WSH'])).toEqual([{ text: 'Tee Higgins' }]);
+    expect(splitTeams('DALLAS', ['DAL'])).toEqual([{ text: 'DALLAS' }]);
+    expect(splitTeams('', ['CIN'])).toEqual([]);
   });
 });

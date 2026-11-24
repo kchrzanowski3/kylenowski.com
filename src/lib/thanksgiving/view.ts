@@ -232,3 +232,74 @@ export function rowLost(
   const cats = categories.filter((c) => keys.includes(c.key));
   return cats.length === keys.length && keys.length > 0 && cats.every((c) => c.status === 'final') && rowPoints(cats, row, playerId) === 0;
 }
+
+// --- Locked vs live points (docs/thanksgiving-spec.md, "Live scoring") --------------------------
+
+type ScoredCategory = { key: string; status: string; points: Record<string, number> };
+
+/** Whether every category behind a row of a player's picks is final (its points are locked in). */
+export function rowLocked(categories: readonly ScoredCategory[], row: keyof Answers | 'final'): boolean {
+  const keys = PICK_ROW_CATEGORIES[row];
+  const cats = categories.filter((c) => keys.includes(c.key));
+  return keys.length > 0 && cats.length === keys.length && cats.every((c) => c.status === 'final');
+}
+
+/**
+ * Each player's locked points: points from categories that are final, across every game (a finished
+ * game's categories are all final). Live points also count categories that could still change.
+ */
+export function lockedPoints(results: Record<string, { score?: { categories?: readonly ScoredCategory[] } } | undefined>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const r of Object.values(results)) {
+    for (const c of r?.score?.categories ?? []) {
+      if (c.status !== 'final') continue;
+      for (const [id, pts] of Object.entries(c.points)) out[id] = (out[id] ?? 0) + pts;
+    }
+  }
+  return out;
+}
+
+export interface RankedRow {
+  playerId: string;
+  rank: number;
+  locked: number;
+  live: number;
+}
+
+/**
+ * The standings as shown: ordered by locked points, then live points. Once every game is final the
+ * two are the same and the published order (with the last-game tiebreaker) is kept.
+ */
+export function rankStandings(
+  rows: readonly { playerId: string; rank: number; total: number }[],
+  locked: Record<string, number>,
+  final: boolean,
+): RankedRow[] {
+  const out = rows.map((r) => ({ playerId: r.playerId, rank: r.rank, locked: final ? r.total : (locked[r.playerId] ?? 0), live: r.total }));
+  if (final) return out;
+  out.sort((a, b) => b.locked - a.locked || b.live - a.live);
+  out.forEach((r, i) => {
+    const prev = out[i - 1];
+    r.rank = prev && prev.locked === r.locked && prev.live === r.live ? prev.rank : i + 1;
+  });
+  return out;
+}
+
+/**
+ * Splits text like "CIN 17 – WSH 19" or "WSH ahead" into plain parts and team abbreviations, so
+ * the abbreviations can be shown as logos. Only whole-word matches of the given abbreviations count.
+ */
+export function splitTeams(text: string, abbrs: readonly string[]): ({ text: string } | { team: string })[] {
+  const known = abbrs.filter(Boolean).map((a) => a.replace(/[^A-Za-z0-9]/g, ''));
+  if (known.length === 0) return text ? [{ text }] : [];
+  const re = new RegExp(`\\b(${known.join('|')})\\b`, 'g');
+  const out: ({ text: string } | { team: string })[] = [];
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    if (m.index! > last) out.push({ text: text.slice(last, m.index) });
+    out.push({ team: m[1] });
+    last = m.index! + m[1].length;
+  }
+  if (last < text.length) out.push({ text: text.slice(last) });
+  return out;
+}

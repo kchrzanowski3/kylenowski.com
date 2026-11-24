@@ -183,9 +183,11 @@ function vegasText(game: Game): ReactNode {
 function Question(props: { n: number; title: string; points: string; note?: string; help?: ReactNode; children: ReactNode }) {
   return (
     <fieldset className="tg-q">
-      <legend>
-        <span className="tg-q-n">{props.n}</span> {props.title} <span className="tg-q-pts">{props.points}</span>
+      <legend className="tg-q-legend">
+        <span className="tg-q-n">{props.n}</span>
+        <span className="tg-q-title">{props.title}</span>
       </legend>
+      <p className="tg-q-pts">{props.points}</p>
       {props.note && <p className="muted tg-small">{props.note}</p>}
       {props.children}
       {props.help && <p className="tg-help tg-small">{props.help}</p>}

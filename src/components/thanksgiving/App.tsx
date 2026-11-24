@@ -2,10 +2,11 @@ import type { User } from 'firebase/auth';
 import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { getClients, watchUser, type Clients } from '../../lib/thanksgiving/client';
-import { isLocked } from '../../lib/thanksgiving/kickoff';
-import { toGame, type Game, type Player } from '../../lib/thanksgiving/view';
+import { QUESTION_COUNT, answeredCount, type Answers } from '../../lib/thanksgiving/questions';
 import type { Standings as StandingsData } from '../../lib/thanksgiving/scoring';
-import { Account } from './Account';
+import { autoGameId, gamePhase, toGame, type Game, type Player } from '../../lib/thanksgiving/view';
+import { AccountMenu } from './AccountMenu';
+import { LockIcon, TeamLogo } from './icons';
 import type { GameResult } from './Scoreboard';
 import { Standings } from './Standings';
 import { GamePanel } from './GamePanel';
@@ -73,14 +74,28 @@ export default function App() {
   useEffect(() => setUserSeenAt(Date.now()), [user]);
   const waitingForPlayer = !!user && !me && now - userSeenAt < 5000;
 
-  // Start on the next game to lock (or the last game once they've all started), then stay on it:
-  // when a game kicks off, its picks are revealed right where you're looking.
+  // How many of the questions you've answered in each game, for the progress bar on its tab.
+  const meId = me?.id ?? null;
+  const gameIds = (games ?? []).map((g) => g.id).join(',');
+  const [answered, setAnswered] = useState<Record<string, number>>({});
   useEffect(() => {
-    if (tab || !games || games.length === 0) return;
-    const t = Date.now();
-    setTab((games.find((g) => !isLocked(g.kickoff, t)) ?? games[games.length - 1]).id);
-  }, [games, tab]);
-  const activeId = tab && games?.some((g) => g.id === tab) ? tab : (games?.[0]?.id ?? null);
+    setAnswered({});
+    if (!clients || !meId || !gameIds) return;
+    const offs = gameIds.split(',').map((id) =>
+      onSnapshot(
+        doc(clients.db, `tgGames/${id}/picks/${meId}`),
+        (snap) => setAnswered((a) => ({ ...a, [id]: snap.exists() ? answeredCount((snap.get('answers') as Answers) ?? {}) : 0 })),
+        () => {}, // right after signing in this can be refused for a moment; the bar just stays empty
+      ),
+    );
+    return () => offs.forEach((off) => off());
+  }, [clients, meId, gameIds]);
+
+  // Open on the game being played, else the next to kick off, else the last; follow it as games
+  // kick off, until you pick a tab yourself.
+  const phases = (games ?? []).map((g) => ({ id: g.id, phase: gamePhase(g.kickoff, results[g.id]?.stats?.state, now) }));
+  const phaseOf = new Map(phases.map((p) => [p.id, p.phase]));
+  const activeId = tab && games?.some((g) => g.id === tab) ? tab : autoGameId(phases);
 
   if (loadError) return <p className="tg-error" role="alert">{loadError}</p>;
   if (!clients || games === null || players === null || user === undefined) return <p className="muted">Loading…</p>;
@@ -92,7 +107,7 @@ export default function App() {
   return (
     <div className="tg">
       {me ? (
-        <Account clients={clients} me={me} />
+        <AccountMenu clients={clients} me={me} />
       ) : waitingForPlayer ? (
         <p className="muted">Signing you in…</p>
       ) : (
@@ -106,23 +121,44 @@ export default function App() {
       ) : (
         <>
           <nav className="tg-tabs" aria-label="Games">
-            {games.map((g) => (
-              <button
-                key={g.id}
-                type="button"
-                className="tg-tab"
-                aria-current={g.id === activeId ? 'page' : undefined}
-                onClick={() => setTab(g.id)}
-              >
-                <span className="tg-tab-teams">
-                  {g.away.abbr} @ {g.home.abbr}
-                </span>
-                <span className="tg-tab-status">{isLocked(g.kickoff, now) ? 'Locked' : 'Open'}</span>
-              </button>
-            ))}
+            {games.map((g) => {
+              const phase = phaseOf.get(g.id)!;
+              const n = answered[g.id] ?? 0;
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  className={`tg-tab tg-tab-${phase}`}
+                  aria-current={g.id === activeId ? 'page' : undefined}
+                  onClick={() => setTab(g.id)}
+                >
+                  <span className="tg-tab-logos" aria-hidden="true">
+                    <TeamLogo team={g.away} size={26} />
+                    <TeamLogo team={g.home} size={26} />
+                  </span>
+                  <span className="tg-tab-teams">
+                    {g.away.abbr} @ {g.home.abbr}
+                  </span>
+                  <LockIcon phase={phase} size={14} />
+                  {me && (
+                    <span
+                      className="tg-progress"
+                      role="progressbar"
+                      aria-label="Your picks"
+                      aria-valuemin={0}
+                      aria-valuemax={QUESTION_COUNT}
+                      aria-valuenow={n}
+                      data-testid={`tg-progress-${g.id}`}
+                    >
+                      <span className={n >= QUESTION_COUNT ? 'tg-progress-fill tg-progress-full' : 'tg-progress-fill'} style={{ width: `${(100 * n) / QUESTION_COUNT}%` }} />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </nav>
           {active && (
-            <GamePanel key={active.id} clients={clients} game={active} me={me} players={players} now={now} result={results[active.id] ?? null} />
+            <GamePanel key={active.id} clients={clients} game={active} me={me} players={players} now={now} result={results[active.id] ?? null} phase={phaseOf.get(active.id)!} />
           )}
         </>
       )}

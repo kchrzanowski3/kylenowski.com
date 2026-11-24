@@ -30,7 +30,8 @@ export default defineConfig({
       directives: [
         "default-src 'self'",
         `connect-src ${connectSrc.join(' ')}`,
-        "img-src 'self' data:",
+        // Team logos (/thanksgiving) come from ESPN's logo CDN.
+        "img-src 'self' data: https://a.espncdn.com",
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",

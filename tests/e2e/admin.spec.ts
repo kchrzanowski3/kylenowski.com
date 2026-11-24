@@ -85,8 +85,22 @@ test('admin signs in by emailed link, fixes a stat, and the leaderboard moves', 
 
   // The viewer's game-1 scoreboard shows it too.
   await viewer.getByRole('button', { name: /CHI @ DET/ }).click();
-  await expect(viewer.getByTestId('tg-livescore')).toContainText('CHI 10 – DET 14');
-  await expect(viewer.getByTestId('tg-scoreboard').getByRole('row', { name: /^Total punts/ })).toContainText('Bob');
+  // The game's header carries the score between the team names, with the clock below.
+  await expect(viewer.getByTestId('tg-livescore')).toContainText(/Bears\s*10\s*–\s*14\s*Lions/);
+  await expect(viewer.getByTestId('tg-clock')).toBeVisible();
+  // "Who's getting points": Bob is right on punts, now final-or-live with a mark; tap for the details.
+  const punts = viewer.getByTestId('tg-cat-punts');
+  await expect(punts).toContainText('Bob');
+  await expect(punts).toContainText('7');
+  await punts.getByRole('button').click();
+  await expect(punts).toContainText('Total punts');
+
+  // The player picker (signed out: the game's leader, Bob) greys out settled questions he didn't get:
+  // the first score is decided and he didn't pick it; his punts are earning points.
+  await expect(viewer.getByTestId('tg-reveal-player').locator('option:checked')).toHaveText('Bob');
+  await expect(viewer.getByTestId('tg-pick-firstTeam')).toHaveClass(/tg-pick-lost/);
+  await expect(viewer.getByTestId('tg-pick-punts')).toHaveClass(/tg-pick-hit/);
+  await expect(viewer.getByTestId('tg-pick-sacks')).not.toHaveClass(/tg-pick-lost/); // still live
 
   // Wide tables scroll inside their own box; the page itself never scrolls sideways on a phone.
   for (const p of [admin, viewer]) {

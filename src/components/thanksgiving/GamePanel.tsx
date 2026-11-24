@@ -3,12 +3,12 @@ import { useEffect, useState } from 'react';
 import { getRevealDb, type Clients } from '../../lib/thanksgiving/client';
 import { etDateTime } from '../../lib/thanksgiving/config';
 import { isLocked } from '../../lib/thanksgiving/kickoff';
-import { formatPoints } from '../../lib/thanksgiving/projection';
 import type { Answers } from '../../lib/thanksgiving/questions';
-import { countdown, type Game, type Pick, type Player } from '../../lib/thanksgiving/view';
+import { countdown, type Game, type GamePhase, type Pick, type Player } from '../../lib/thanksgiving/view';
+import { LockIcon, TeamLogo } from './icons';
 import { PickForm } from './PickForm';
-import { RevealTable } from './RevealTable';
-import { Scoreboard, type GameResult } from './Scoreboard';
+import { PlayerPicks } from './PlayerPicks';
+import { Scoreboard, gameClock, type GameResult } from './Scoreboard';
 
 interface Props {
   clients: Clients;
@@ -17,9 +17,10 @@ interface Props {
   players: Player[];
   now: number;
   result: GameResult | null;
+  phase: GamePhase;
 }
 
-export function GamePanel({ clients, game, me, players, now, result }: Props) {
+export function GamePanel({ clients, game, me, players, now, result, phase }: Props) {
   const locked = isLocked(game.kickoff, now);
   // Your saved picks, tagged with whose they are, so the form never starts from another sign-in's
   // (or a not-yet-loaded) state.
@@ -77,36 +78,48 @@ export function GamePanel({ clients, game, me, players, now, result }: Props) {
     };
   }, [game.id, locked, revealRetry]);
 
-  const { line, projection } = game;
+  const scored = locked && !!result && result.score.status !== 'pre';
 
   return (
     <section className="tg-game" aria-labelledby={`tg-game-${game.id}`}>
       <header className="tg-game-head">
-        <h2 id={`tg-game-${game.id}`}>
-          {game.away.shortName} <span className="muted">@</span> {game.home.shortName}
+        {/* Once the game is under way the team names carry the score, with the clock below. */}
+        <h2 id={`tg-game-${game.id}`} className="tg-matchup" data-testid={scored ? 'tg-livescore' : undefined}>
+          <span className="tg-matchup-team"><TeamLogo team={game.away} size={36} /> {game.away.shortName}</span>
+          {scored ? (
+            <span className="tg-matchup-score">
+              {result!.stats.away} <span className="muted">–</span> {result!.stats.home}
+            </span>
+          ) : (
+            <span className="muted">@</span>
+          )}
+          <span className="tg-matchup-team">{game.home.shortName} <TeamLogo team={game.home} size={36} /></span>
         </h2>
-        <p className="muted">
-          Game {game.order} · {etDateTime(game.kickoff)}
-          {game.tv ? ` · ${game.tv}` : ''}
-        </p>
-        <p className={locked ? 'tg-status tg-status-locked' : 'tg-status'} data-testid="tg-lock-status">
-          {locked ? 'Picks are locked and revealed.' : `Picks lock at kickoff, in ${countdown(game.kickoff - now)}.`}
-        </p>
-        {line && projection && (
-          <p className="tg-vegas">
-            <strong>Vegas:</strong> {line.details || 'Pick’em'}, O/U {formatPoints(line.overUnder)} → projects{' '}
-            {game.away.abbr} {formatPoints(projection.away)} – {game.home.abbr} {formatPoints(projection.home)}
-          </p>
+        {scored && (
+          <p className={phase === 'live' ? 'tg-clock tg-clock-live' : 'tg-clock'} data-testid="tg-clock">{gameClock(result!.stats)}</p>
         )}
+        <p className="tg-game-meta">
+          <span className={`tg-phase tg-phase-${phase}`} data-testid="tg-lock-status" data-phase={phase}>
+            <LockIcon phase={phase} size={14} />
+            {phase === 'open' ? countdown(game.kickoff - now) : phase === 'live' ? 'Locked' : 'Final'}
+          </span>
+          <span className="muted">
+            {etDateTime(game.kickoff)}
+            {game.tv ? ` · ${game.tv}` : ''}
+          </span>
+        </p>
       </header>
 
       {!locked && me && mine?.playerId !== me.id && <p className="muted">Loading your picks…</p>}
       {!locked && me && mine?.playerId === me.id && (
         <PickForm key={me.id} clients={clients} game={game} me={me} saved={mine.answers} now={now} />
       )}
-      {!locked && !me && <p className="muted">Sign in above to make your picks. Everyone's picks are shown here at kickoff.</p>}
-      {locked && <Scoreboard game={game} result={result} players={players} />}
-      {locked && <RevealTable game={game} picks={everyone} players={players} me={me} />}
+      {!locked && !me && <p className="muted">Sign in above to make your picks.</p>}
+      {locked && (
+        <Scoreboard game={game} result={result} players={players} me={me}>
+          <PlayerPicks game={game} picks={everyone} players={players} me={me} score={result?.score ?? null} />
+        </Scoreboard>
+      )}
     </section>
   );
 }

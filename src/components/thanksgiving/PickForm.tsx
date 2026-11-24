@@ -12,8 +12,9 @@ import {
   savableAnswers,
   type Answers,
 } from '../../lib/thanksgiving/questions';
-import type { ScorerPosition, Side, TeamAverages } from '../../lib/thanksgiving/types';
-import type { Game, Player } from '../../lib/thanksgiving/view';
+import type { ScorerPosition, Side } from '../../lib/thanksgiving/types';
+import { averageHint, type Game, type Player } from '../../lib/thanksgiving/view';
+import { formatPoints } from '../../lib/thanksgiving/projection';
 
 interface Props {
   clients: Clients;
@@ -84,7 +85,12 @@ export function PickForm({ clients, game, me, saved }: Props) {
         <span className={`tg-save-${status.kind}`}>{statusText(status)}</span>
       </div>
 
-      <Question n={1} title="Final score" points="3 closest · +1 right winner · +1 within 15" help={averagesText(game, 'points', 'points per game')}>
+      <Question
+        n={1}
+        title="Final score"
+        points="3 points (closest pick wins) · +1 point for the right winner · +1 point if within 15"
+        help={vegasText(game)}
+      >
         <div className="tg-score">
           {sides.map(([side, abbr]) => {
             const key = side === 'away' ? 'finalAway' : 'finalHome';
@@ -96,14 +102,13 @@ export function PickForm({ clients, game, me, saved }: Props) {
             );
           })}
         </div>
-        <p className="muted tg-small">Can't be a tie.</p>
       </Question>
 
-      <Question n={2} title="Which team scores first?" points="1">
+      <Question n={2} title="Which team scores first?" points="1 point">
         <Choice options={sides} value={a.firstTeam} onChange={(v) => update('firstTeam', v as Side | undefined)} />
       </Question>
 
-      <Question n={3} title="How is the first score made?" points="1 · 5 for a safety">
+      <Question n={3} title="How is the first score made?" points="1 point · 5 points for a safety">
         <Choice
           options={[['td', 'TD'], ['fg', 'FG'], ['safety', 'Safety']]}
           value={a.firstScoreType}
@@ -111,32 +116,32 @@ export function PickForm({ clients, game, me, saved }: Props) {
         />
       </Question>
 
-      <Question n={4} title="First TD scorer" points="3">
+      <Question n={4} title="First TD scorer" points="3 points">
         <ScorerSelect game={game} value={a.firstTdScorer} onChange={(v) => update('firstTdScorer', v)} />
       </Question>
 
-      <Question n={5} title="Who's leading at halftime?" points="1">
+      <Question n={5} title="Who's leading at halftime?" points="1 point">
         <Choice options={sidesTie} value={a.halftime} onChange={(v) => update('halftime', v as Answers['halftime'])} />
       </Question>
 
-      <Question n={6} title="Which team has more passing TDs?" points="1">
+      <Question n={6} title="Which team has more passing TDs?" points="1 point">
         <Choice options={sidesTie} value={a.passTds} onChange={(v) => update('passTds', v as Answers['passTds'])} />
       </Question>
 
-      <Question n={7} title="Which team has more rushing TDs?" points="1">
+      <Question n={7} title="Which team has more rushing TDs?" points="1 point">
         <Choice options={sidesTie} value={a.rushTds} onChange={(v) => update('rushTds', v as Answers['rushTds'])} />
       </Question>
 
-      <Question n={8} title="Missed extra point or field goal?" points="1" note="Any missed or blocked kick. A failed 2-point try doesn't count.">
+      <Question n={8} title="Missed extra point or field goal?" points="1 point" note="Any missed or blocked kick. A failed 2-point try doesn't count.">
         <YesNo value={a.missedKick} onChange={(v) => update('missedKick', v)} />
       </Question>
 
-      <Question n={9} title="Lead change in the 4th quarter?" points="1" note="Yes if a team goes ahead when it was tied or behind. Overtime doesn't count.">
+      <Question n={9} title="Lead change in the 4th quarter?" points="1 point" note="Yes if a team goes ahead when it was tied or behind. Overtime doesn't count.">
         <YesNo value={a.leadChange4q} onChange={(v) => update('leadChange4q', v)} />
       </Question>
 
       {NUMBER_QUESTIONS.map((q, i) => (
-        <Question key={q.key} n={10 + i} title={q.label} points="3 closest" note={q.hint} help={averagesText(game, q.avg, `${q.unit} per game`)}>
+        <Question key={q.key} n={10 + i} title={q.label} points="3 points (closest pick wins)" note={q.hint} help={averageHint(q.key, game.averages.nfl)}>
           <NumberInput value={a[q.key]} max={q.max} label={q.label} onChange={(v) => update(q.key, v)} />
         </Question>
       ))}
@@ -163,26 +168,15 @@ function friendly(problem: string): string {
   return `Saved, except: ${problem}.`;
 }
 
-/** "CHI 1.8 · DET 2.1 field goals made per game (each team's own) · NFL average 1.9 per team". */
-function averagesText(game: Game, field: keyof Omit<TeamAverages, 'games'>, unit: string): ReactNode {
-  const { away, home, nfl } = game.averages;
-  if (!away && !home && !nfl) return null;
-  const parts: string[] = [];
-  if (away) parts.push(`${game.away.abbr} ${away[field]}`);
-  if (home) parts.push(`${game.home.abbr} ${home[field]}`);
+/** "Vegas projects GB 25.5 – LAR 22 (GB -3.5, O/U 47.5)", or nothing without a line. */
+function vegasText(game: Game): ReactNode {
+  const { line, projection } = game;
+  if (!line || !projection) return null;
   return (
-    <>
-      {parts.length > 0 && (
-        <>
-          {parts.join(' · ')} {unit} <span className="muted">(each team’s own)</span>
-        </>
-      )}
-      {nfl && (
-        <>
-          {parts.length > 0 ? ' · ' : ''}NFL average {nfl[field]} per team
-        </>
-      )}
-    </>
+    <span className="tg-vegas">
+      Vegas projects {game.away.abbr} {formatPoints(projection.away)} – {game.home.abbr} {formatPoints(projection.home)}{' '}
+      <span className="muted">({line.details || 'Pick’em'}, O/U {formatPoints(line.overUnder)})</span>
+    </span>
   );
 }
 

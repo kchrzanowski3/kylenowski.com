@@ -7,10 +7,10 @@ import '../styles/thanksgiving.css';
 ---
 
 <Base title="Thanksgiving Picks" description="Family pick'em for the Thanksgiving NFL games." noindex>
-  <h1>Thanksgiving Picks 🦃</h1>
-  <p class="muted">
-    Three games on Thursday, Nov 26. Make your picks for each game before it kicks off; everyone's picks are revealed
-    at kickoff.
-  </p>
+  <div class="tg-titlebar">
+    <h1>Thanksgiving Picks 🦃</h1>
+    <!-- The signed-in player's menu (components/thanksgiving/AccountMenu.tsx) goes here. -->
+    <div id="tg-account-slot"></div>
+  </div>
   <App client:only="react" />
 </Base>

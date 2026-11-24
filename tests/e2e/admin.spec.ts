@@ -85,9 +85,10 @@ test('admin signs in by emailed link, fixes a stat, and the leaderboard moves', 
 
   // The viewer's game-1 scoreboard shows it too.
   await viewer.getByRole('button', { name: /CHI @ DET/ }).click();
-  // The game's header carries the score between the team names, with the clock below.
+  // The game's header carries the score between the team names, with a single live clock pill below (no duplicate Live badge).
   await expect(viewer.getByTestId('tg-livescore')).toContainText(/Bears\s*10\s*–\s*14\s*Lions/);
   await expect(viewer.getByTestId('tg-clock')).toBeVisible();
+  await expect(viewer.getByTestId('tg-lock-status')).toHaveCount(0);
 
   // Default live-game sub-tab ("Picks"): starts on the game's leader (Bob) with inline actual stats
   // so players immediately see why each pick is winning or losing.

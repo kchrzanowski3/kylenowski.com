@@ -10,9 +10,11 @@ interface Props {
   joinOpen: boolean;
   /** Signed in as a player that has since been removed. */
   signedInElsewhere: boolean;
+  /** Called after one-tap sign-in on a PIN-less player chip so the app can show a quick undo toast. */
+  onQuickSignIn?: (player: Player) => void;
 }
 
-export function SignIn({ clients, players, joinOpen, signedInElsewhere }: Props) {
+export function SignIn({ clients, players, joinOpen, signedInElsewhere, onQuickSignIn }: Props) {
   const [mode, setMode] = useState<'pick' | 'join'>(players.length === 0 && joinOpen ? 'join' : 'pick');
   const [chosen, setChosen] = useState<Player | null>(null);
   const [pin, setPin] = useState('');
@@ -38,7 +40,12 @@ export function SignIn({ clients, players, joinOpen, signedInElsewhere }: Props)
     setError(null);
     setPin('');
     if (p.hasPin) setChosen(p);
-    else void run(() => login(clients.auth, p.id, ''));
+    else {
+      void run(async () => {
+        await login(clients.auth, p.id, '');
+        onQuickSignIn?.(p);
+      });
+    }
   }
 
   function submitPin(e: { preventDefault(): void }) {

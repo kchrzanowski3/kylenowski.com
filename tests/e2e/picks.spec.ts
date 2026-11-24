@@ -307,5 +307,57 @@ test('pick form sections, numeric steppers, inline errors, jump helper, and 44px
   await expect(page.getByLabel('Total punts')).toHaveValue('1');
 });
 
+test('masthead TV & Rules modal, PIN-less sign-in undo toast, and AccountMenu Cancel', async ({ page }) => {
+  await seed(3_600_000);
+  await join(page, 'Kyle');
+
+  // Reorganized AccountMenu: player identity comes first, visual divider before TV, and Cancel on Add a PIN.
+  await page.getByRole('button', { name: 'Account: Kyle' }).click();
+  const menu = page.getByRole('menu', { name: 'Account' });
+  const text = await menu.innerText();
+  expect(text.indexOf('Kyle')).toBeLessThan(text.indexOf('Full screen scoreboard'));
+  await expect(menu.locator('hr.tg-menu-divider')).toBeVisible();
+  await menu.getByRole('menuitem', { name: 'Add a PIN' }).click();
+  await expect(menu.getByLabel('New 4-digit PIN')).toBeVisible();
+  await menu.getByRole('button', { name: 'Cancel' }).click();
+  await expect(menu.getByLabel('New 4-digit PIN')).toHaveCount(0);
+  await expect(menu.getByRole('menuitem', { name: 'Add a PIN' })).toBeVisible();
+  await menu.getByRole('menuitem', { name: 'Switch player' }).click();
+  await expect(page.getByRole('heading', { name: 'Who are you?' })).toBeVisible();
+
+  // Signed-out visitors can discover "How it works" and TV view directly from the masthead.
+  await page.getByTestId('tg-rules-btn').click();
+  const modal = page.getByTestId('tg-rules-modal');
+  await expect(modal).toBeVisible();
+  await expect(modal).toContainText('Scoring & closest wins');
+  await expect(modal).toContainText('Live vs. Banked points');
+  await expect(modal).toContainText('Kickoff lock & reveal');
+  await expect(modal).toContainText('Tiebreakers & champions');
+  await page.keyboard.press('Escape');
+  await expect(modal).toHaveCount(0);
+
+  await page.getByTestId('tg-tv-btn').click();
+  await expect(page.getByTestId('tg-tv')).toBeVisible();
+  await page.getByRole('button', { name: 'Exit full screen' }).click();
+  await expect(page.getByTestId('tg-tv')).toHaveCount(0);
+
+  // Tapping a PIN-less family chip shows an undo toast ("Signed in as Kyle — Switch").
+  await page.getByRole('button', { name: 'Kyle' }).click();
+  const toast = page.getByTestId('tg-signin-toast');
+  await expect(toast).toBeVisible();
+  await expect(toast).toContainText('Signed in as Kyle');
+  await toast.getByRole('button', { name: 'Switch' }).click();
+  await expect(page.getByRole('heading', { name: 'Who are you?' })).toBeVisible();
+
+  // Sign back in and verify masthead controls fit cleanly at desktop & mobile widths without horizontal overflow.
+  await page.getByRole('button', { name: 'Kyle' }).click();
+  await expect(page.getByTestId('tg-me')).toHaveText('Kyle');
+  for (const width of [1024, 390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect(scrollWidth, `overflow at ${width}px`).toBeLessThanOrEqual(width);
+  }
+});
+
 
 

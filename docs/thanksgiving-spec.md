@@ -219,7 +219,10 @@ the browser allows it); "Exit full screen" or Esc closes it. Nothing is tucked a
 - The game: logos, team names and score, the clock (or, before kickoff, the kickoff time, TV and Vegas projection).
 - A table of every category: its full name, worth ("3 pts"), the value so far, **every player who's right, by
   name**, and its status (✓ Final / ○ Live).
-- The overall standings at the side: rank, player, locked and live points, in the same order as on the page.
+- The overall standings in a box at the right, sized to its content: rank, player, locked and live points, in
+  the same order as on the page.
+- Teams are shown by their logos (in the games strip and the "so far" values), with the abbreviation in their
+  place if a logo can't be loaded.
 - It keeps the screen awake while it's open, where the browser supports it.
 
 ## Admin (only Kyle)

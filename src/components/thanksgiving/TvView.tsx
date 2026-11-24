@@ -7,7 +7,7 @@ import type { Standings as StandingsData } from '../../lib/thanksgiving/scoring'
 import { formatPoints } from '../../lib/thanksgiving/projection';
 import { etDateTime } from '../../lib/thanksgiving/config';
 import { autoGameId, rankStandings, worthBadge, type Game, type GamePhase, type Player } from '../../lib/thanksgiving/view';
-import { LockIcon, TeamLogo } from './icons';
+import { LockIcon, TeamLogo, TeamText } from './icons';
 import { gameClock, type GameResult } from './Scoreboard';
 
 interface Props {
@@ -88,9 +88,9 @@ export function TvView({ games, phases, results, standings, locked, players, onE
               aria-current={g.id === activeId ? 'page' : undefined}
               onClick={() => setChosen({ id: g.id, autoAt: auto })}
             >
-              <TeamLogo team={g.away} size={22} />
-              {g.away.abbr} @ {g.home.abbr}
-              <TeamLogo team={g.home} size={22} />
+              <TeamLogo team={g.away} size={28} standIn />
+              <span className="muted">@</span>
+              <TeamLogo team={g.home} size={28} standIn />
               <LockIcon phase={phaseOf.get(g.id) ?? 'open'} size={13} />
             </button>
           ))}
@@ -183,7 +183,7 @@ function TvGame({ game, phase, result, names }: { game: Game; phase: GamePhase; 
                 <tr key={c.key} data-testid={`tg-tv-cat-${c.key}`}>
                   <th scope="row">{c.label}</th>
                   <td className="tg-num">{worthBadge(c.worth)}</td>
-                  <td>{c.answer}</td>
+                  <td><TeamText text={c.answer} teams={[game.away, game.home]} /></td>
                   <td className={final ? undefined : 'tg-projected'}>{right.length ? right.join(', ') : '—'}</td>
                   <td className={final ? 'tg-tv-final' : 'tg-tv-live'}>{final ? '✓ Final' : '○ Live'}</td>
                 </tr>

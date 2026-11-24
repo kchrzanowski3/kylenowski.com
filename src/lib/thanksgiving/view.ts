@@ -284,3 +284,22 @@ export function rankStandings(
   });
   return out;
 }
+
+/**
+ * Splits text like "CIN 17 – WSH 19" or "WSH ahead" into plain parts and team abbreviations, so
+ * the abbreviations can be shown as logos. Only whole-word matches of the given abbreviations count.
+ */
+export function splitTeams(text: string, abbrs: readonly string[]): ({ text: string } | { team: string })[] {
+  const known = abbrs.filter(Boolean).map((a) => a.replace(/[^A-Za-z0-9]/g, ''));
+  if (known.length === 0) return text ? [{ text }] : [];
+  const re = new RegExp(`\\b(${known.join('|')})\\b`, 'g');
+  const out: ({ text: string } | { team: string })[] = [];
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    if (m.index! > last) out.push({ text: text.slice(last, m.index) });
+    out.push({ team: m[1] });
+    last = m.index! + m[1].length;
+  }
+  if (last < text.length) out.push({ text: text.slice(last) });
+  return out;
+}

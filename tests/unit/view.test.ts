@@ -12,6 +12,7 @@ import {
   lockedPoints,
   rankStandings,
   rowLocked,
+  splitTeams,
   rowLost,
   rowPoints,
   shortWorth,
@@ -200,5 +201,19 @@ describe('locked vs live points', () => {
       { playerId: 'a', rank: 1, locked: 9, live: 9 },
       { playerId: 'b', rank: 2, locked: 9, live: 9 },
     ]);
+  });
+});
+
+describe('team logos in text (full-screen scoreboard)', () => {
+  it('splits out whole-word team abbreviations', () => {
+    expect(splitTeams('CIN 17 – WSH 19', ['CIN', 'WSH'])).toEqual([{ team: 'CIN' }, { text: ' 17 – ' }, { team: 'WSH' }, { text: ' 19' }]);
+    expect(splitTeams('WSH ahead', ['CIN', 'WSH'])).toEqual([{ team: 'WSH' }, { text: ' ahead' }]);
+    expect(splitTeams('CIN (2–0)', ['CIN', 'WSH'])).toEqual([{ team: 'CIN' }, { text: ' (2–0)' }]);
+  });
+  it('leaves other text alone, including abbreviations inside words', () => {
+    expect(splitTeams('No (so far)', ['CIN', 'WSH'])).toEqual([{ text: 'No (so far)' }]);
+    expect(splitTeams('Tee Higgins', ['CIN', 'WSH'])).toEqual([{ text: 'Tee Higgins' }]);
+    expect(splitTeams('DALLAS', ['DAL'])).toEqual([{ text: 'DALLAS' }]);
+    expect(splitTeams('', ['CIN'])).toEqual([]);
   });
 });

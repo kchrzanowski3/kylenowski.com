@@ -1,6 +1,4 @@
-// Browser-side Firebase and sign-in-service access for /thanksgiving (and /thanksgiving-test).
-// Loaded only by the React island. Everything takes the page's contest (config.ts): its
-// collections, and ?contest= on calls to the functions for any contest but the real one.
+// Browser-side Firebase and sign-in-service access for /thanksgiving. Loaded only by the React island.
 
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import {
@@ -18,7 +16,6 @@ import {
   type User,
 } from 'firebase/auth';
 import { connectFirestoreEmulator, getFirestore, type Firestore } from 'firebase/firestore';
-import { REAL_CONTEST, type Contest } from './config';
 
 /** Set at build time for tests against the local emulators (see playwright.config.ts). */
 const EMULATOR = import.meta.env.PUBLIC_TG_EMULATOR === '1';
@@ -29,15 +26,9 @@ export interface Clients {
   app: FirebaseApp;
   auth: Auth;
   db: Firestore;
-  contest: Contest;
 }
 
-/** The query string that names a contest to the functions: none for the real one. */
-export function contestQuery(contest: Contest): string {
-  return contest.id === REAL_CONTEST.id ? '' : `?contest=${encodeURIComponent(contest.id)}`;
-}
-
-const clientsByContest = new Map<string, Promise<Clients>>();
+let clients: Promise<Clients> | null = null;
 let config: Promise<Record<string, string>> | null = null;
 
 /** Firebase Hosting serves the project's web-app config at this reserved URL. */
@@ -59,31 +50,23 @@ const revealDbs = new Map<string, Promise<Firestore>>();
  * connection that was already open before kickoff can be refused (the emulator, at least, has no
  * request.time for it). Revealed picks are public, so this connection needs no sign-in.
  */
-export function getRevealDb(contest: Contest, gameId: string): Promise<Firestore> {
-  const name = `reveal-${contest.prefix}-${gameId}`;
-  let db = revealDbs.get(name);
+export function getRevealDb(gameId: string): Promise<Firestore> {
+  let db = revealDbs.get(gameId);
   if (!db) {
     db = (async () => {
-      const app = initializeApp(await loadConfig(), name);
+      const app = initializeApp(await loadConfig(), `reveal-${gameId}`);
       const fs = getFirestore(app);
       if (EMULATOR) connectFirestoreEmulator(fs, '127.0.0.1', 8080);
       return fs;
     })();
-    revealDbs.set(name, db);
+    revealDbs.set(gameId, db);
   }
   return db;
 }
 
-/**
- * The player's Firebase connection for a contest. The real contest uses the default app, as it
- * always has; any other contest gets an app of its own, so a test sign-in never replaces (or is
- * mistaken for) a real one in the same browser.
- */
-export function getClients(contest: Contest = REAL_CONTEST): Promise<Clients> {
-  let clients = clientsByContest.get(contest.id);
-  if (clients) return clients;
-  clients = (async () => {
-    const app = contest.id === REAL_CONTEST.id ? initializeApp(await loadConfig()) : initializeApp(await loadConfig(), `player-${contest.id}`);
+export function getClients(): Promise<Clients> {
+  clients ??= (async () => {
+    const app = initializeApp(await loadConfig());
     // initializeAuth without a popup/redirect resolver: sign-in here is by custom token only, and
     // the resolver would load a script from apis.google.com that the CSP (rightly) blocks.
     const auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });
@@ -92,9 +75,8 @@ export function getClients(contest: Contest = REAL_CONTEST): Promise<Clients> {
       connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
       connectFirestoreEmulator(db, '127.0.0.1', 8080);
     }
-    return { app, auth, db, contest };
+    return { app, auth, db };
   })();
-  clientsByContest.set(contest.id, clients);
   return clients;
 }
 
@@ -104,10 +86,10 @@ export function watchUser(auth: Auth, cb: (u: User | null) => void): () => void 
 
 export class ApiError extends Error {}
 
-async function post<T>(contest: Contest, path: string, body: unknown, idToken?: string): Promise<T> {
+async function post<T>(path: string, body: unknown, idToken?: string): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}${contestQuery(contest)}`, {
+    res = await fetch(`${API_BASE}${path}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...(idToken ? { authorization: `Bearer ${idToken}` } : {}) },
       body: JSON.stringify(body),
@@ -120,36 +102,36 @@ async function post<T>(contest: Contest, path: string, body: unknown, idToken?: 
   return data as T;
 }
 
-export async function join({ auth, contest }: Clients, name: string, pin: string): Promise<void> {
-  const { token } = await post<{ token: string }>(contest, '/join', { name, pin: pin || undefined });
+export async function join(auth: Auth, name: string, pin: string): Promise<void> {
+  const { token } = await post<{ token: string }>('/join', { name, pin: pin || undefined });
   await signInWithCustomToken(auth, token);
 }
 
-export async function login({ auth, contest }: Clients, playerId: string, pin: string): Promise<void> {
-  const { token } = await post<{ token: string }>(contest, '/login', { playerId, pin: pin || undefined });
+export async function login(auth: Auth, playerId: string, pin: string): Promise<void> {
+  const { token } = await post<{ token: string }>('/login', { playerId, pin: pin || undefined });
   await signInWithCustomToken(auth, token);
 }
 
-export async function changePin({ auth, contest }: Clients, pin: string): Promise<void> {
+export async function changePin(auth: Auth, pin: string): Promise<void> {
   const user = auth.currentUser;
   if (!user) throw new ApiError('Sign in first.');
-  await post(contest, '/pin', { pin }, await user.getIdToken());
+  await post('/pin', { pin }, await user.getIdToken());
 }
 
 export function switchPlayer(auth: Auth): Promise<void> {
   return signOut(auth);
 }
 
-// --- Admin (/thanksgiving/admin, /thanksgiving-test/admin) -------------------------------------
+// --- Admin (/thanksgiving/admin) --------------------------------------------------------------
 // A separate Firebase app instance, so the admin's sign-in never replaces a player sign-in in the
-// same browser. Both contests' admin screens share it: it's the same admin.
+// same browser.
 
 const ADMIN_API: string =
   import.meta.env.PUBLIC_TG_ADMIN_API ?? 'https://us-central1-kylenowski-com.cloudfunctions.net/tg-admin';
 const ADMIN_EMAIL_KEY = 'tgAdminEmail';
-let adminClients: Promise<Omit<Clients, 'contest'>> | null = null;
+let adminClients: Promise<Clients> | null = null;
 
-export async function getAdminClients(contest: Contest = REAL_CONTEST): Promise<Clients> {
+export function getAdminClients(): Promise<Clients> {
   adminClients ??= (async () => {
     const app = initializeApp(await loadConfig(), 'admin');
     const auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });
@@ -160,12 +142,12 @@ export async function getAdminClients(contest: Contest = REAL_CONTEST): Promise<
     }
     return { app, auth, db };
   })();
-  return { ...(await adminClients), contest };
+  return adminClients;
 }
 
 /** Emails a one-time sign-in link that comes back to this page. */
-export async function sendAdminLink({ auth, contest }: Clients, email: string): Promise<void> {
-  await sendSignInLinkToEmail(auth, email, { url: `${location.origin}${contest.path}/admin`, handleCodeInApp: true });
+export async function sendAdminLink(auth: Auth, email: string): Promise<void> {
+  await sendSignInLinkToEmail(auth, email, { url: `${location.origin}/thanksgiving/admin`, handleCodeInApp: true });
   try {
     localStorage.setItem(ADMIN_EMAIL_KEY, email);
   } catch {
@@ -189,12 +171,12 @@ export async function completeAdminLink(auth: Auth, askEmail: () => string | nul
   return true;
 }
 
-export async function adminCall<T = Record<string, unknown>>({ auth, contest }: Clients, body: Record<string, unknown>): Promise<T> {
+export async function adminCall<T = Record<string, unknown>>(auth: Auth, body: Record<string, unknown>): Promise<T> {
   const user = auth.currentUser;
   if (!user) throw new ApiError('Sign in first.');
   let res: Response;
   try {
-    res = await fetch(`${ADMIN_API}${contestQuery(contest)}`, {
+    res = await fetch(ADMIN_API, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${await user.getIdToken()}` },
       body: JSON.stringify(body),

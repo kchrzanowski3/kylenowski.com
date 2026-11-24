@@ -5,7 +5,6 @@
 //   tgPlayers/{playerId}                  PlayerDoc     public
 //   tgMeta/{doc}                          refresh info  public
 //   tgSecrets/{playerId}, tgNames/{key}, tgSeasonGames/{espnEventId}   server only
-// The test contest has the same layout under the tgTest prefix (tgTestGames, ...; config.ts).
 
 export type Side = 'away' | 'home';
 export type SideOrTie = Side | 'tie';

@@ -1,6 +1,6 @@
-// Picks for the test contest's seed players (docs/thanksgiving-spec.md, "Test contest"), so a
+// Picks for the practice players (docs/thanksgiving-spec.md, "Practice games"), so a
 // practice game has a full leaderboard to score. Varied but stable: the same player and game always
-// get the same answers. Never used by the real contest.
+// get the same answers. Only for the Mon/Wed practice games.
 
 import type { Answers } from './questions';
 import type { ScorerOption } from './types';

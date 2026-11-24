@@ -187,7 +187,7 @@ locals {
       sa          = google_service_account.tg_refresh.email
       memory      = "512Mi"
       timeout     = 540
-      max         = 2 # CI starts the real and test contests' refreshes back to back
+      max         = 1
     }
     live = {
       name        = "tg-live"
@@ -280,12 +280,17 @@ resource "google_cloud_run_v2_service_iam_member" "tg_refresh_scheduler" {
 # --- Pre-game refresh schedule (spec, "Pre-game refresh") ---------------------
 # Daily at 9:00 AM ET from launch through Wednesday (Nov 23-25 only, so it stops
 # by itself), and hourly on Thursday until noon ET, when the live worker (PR 2)
-# takes over. CI also runs it once after each deploy.
+# takes over. CI also runs it once after each deploy. The 6:00 AM Thursday run is
+# the first after the end of the practice (config.ts, CUTOVER_MS): it removes the
+# Mon/Wed practice games and the practice players.
 # Games that have kicked off are frozen, so later runs don't change them.
 locals {
   tg_refresh_schedules = {
     "tg-pregame-daily"    = "0 9 23-25 11 *"
     "tg-pregame-thursday" = "0 0-11 26 11 *"
+    # Practice games (spec, "Practice games"): hourly on Mon Nov 23 and Wed Nov 25, apart from
+    # 9:00, which tg-pregame-daily covers. Removed with the practice code after Thursday.
+    "tg-pregame-practice" = "0 0-8,10-23 23,25 11 *"
   }
 }
 
@@ -343,58 +348,21 @@ resource "google_cloud_scheduler_job" "tg_live" {
   depends_on = [google_project_service.thanksgiving, google_cloud_run_v2_service_iam_member.tg_live_scheduler]
 }
 
-
-# --- Test contest schedules (spec, "Test contest") ------------------------------
-# The same tg-refresh and tg-live functions, called with ?contest=test, run the
-# test contest (Mon Nov 23 CIN @ WSH 8:15 PM ET, Wed Nov 25 GB @ LAR 8:00 PM ET)
-# on its own tgTest* collections. Removed after Wednesday's game.
+# Practice games (spec, "Practice games"): the same live worker, every minute
+# from 1 hour before each practice kickoff (Mon Nov 23 CIN @ WSH 8:15 PM ET,
+# Wed Nov 25 GB @ LAR 8:00 PM ET) until 1:00 AM. Removed after Thursday.
 locals {
-  tg_test_refresh_uri = "${google_cloudfunctions2_function.tg["refresh"].service_config[0].uri}?contest=test"
-  tg_test_live_uri    = "${google_cloudfunctions2_function.tg["live"].service_config[0].uri}?contest=test"
-
-  # Pre-game refresh: hourly on the test days (CI also runs it once after each deploy).
-  tg_test_refresh_schedules = {
-    "tg-test-pregame-hourly" = "0 * 23,25 11 *"
-  }
-
-  # Live worker: every minute from 1 hour before each test kickoff until 1:00 AM.
-  tg_test_live_schedules = {
-    "tg-test-live-mon-pregame" = "15-59 19 23 11 *" # Mon 7:15-7:59 PM
-    "tg-test-live-mon"         = "* 20-23 23 11 *"  # Mon 8:00-11:59 PM
-    "tg-test-live-mon-late"    = "* 0 24 11 *"      # Tue 12:00-12:59 AM
-    "tg-test-live-wed"         = "* 19-23 25 11 *"  # Wed 7:00-11:59 PM
-    "tg-test-live-wed-late"    = "* 0 26 11 *"      # Thu 12:00-12:59 AM
+  tg_live_practice_schedules = {
+    "tg-live-practice-mon-pregame" = "15-59 19 23 11 *" # Mon 7:15-7:59 PM
+    "tg-live-practice-mon"         = "* 20-23 23 11 *"  # Mon 8:00-11:59 PM
+    "tg-live-practice-mon-late"    = "* 0 24 11 *"      # Tue 12:00-12:59 AM
+    "tg-live-practice-wed"         = "* 19-23 25 11 *"  # Wed 7:00-11:59 PM
+    "tg-live-practice-wed-late"    = "* 0 26 11 *"      # Thu 12:00-12:59 AM
   }
 }
 
-resource "google_cloud_scheduler_job" "tg_test_refresh" {
-  for_each = local.tg_test_refresh_schedules
-
-  name             = each.key
-  region           = var.region
-  schedule         = each.value
-  time_zone        = "America/New_York"
-  attempt_deadline = "600s"
-
-  retry_config {
-    retry_count = 1
-  }
-
-  http_target {
-    http_method = "POST"
-    uri         = local.tg_test_refresh_uri
-
-    oidc_token {
-      service_account_email = google_service_account.tg_scheduler.email
-      audience              = google_cloudfunctions2_function.tg["refresh"].service_config[0].uri
-    }
-  }
-
-  depends_on = [google_project_service.thanksgiving, google_cloud_run_v2_service_iam_member.tg_refresh_scheduler]
-}
-
-resource "google_cloud_scheduler_job" "tg_test_live" {
-  for_each = local.tg_test_live_schedules
+resource "google_cloud_scheduler_job" "tg_live_practice" {
+  for_each = local.tg_live_practice_schedules
 
   name             = each.key
   region           = var.region
@@ -408,7 +376,7 @@ resource "google_cloud_scheduler_job" "tg_test_live" {
 
   http_target {
     http_method = "POST"
-    uri         = local.tg_test_live_uri
+    uri         = google_cloudfunctions2_function.tg["live"].service_config[0].uri
 
     oidc_token {
       service_account_email = google_service_account.tg_scheduler.email

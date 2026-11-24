@@ -2,7 +2,6 @@ import { FirebaseError } from 'firebase/app';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Clients } from '../../lib/thanksgiving/client';
-import { col } from '../../lib/thanksgiving/config';
 import {
   FINAL_SCORE_MAX,
   NUMBER_QUESTIONS,
@@ -36,7 +35,7 @@ export function PickForm({ clients, game, me, saved }: Props) {
     pending.current = null;
     setStatus({ kind: 'saving' });
     try {
-      await setDoc(doc(clients.db, `${col(clients.contest, 'Games')}/${game.id}/picks/${me.id}`), {
+      await setDoc(doc(clients.db, `tgGames/${game.id}/picks/${me.id}`), {
         answers,
         updatedAt: serverTimestamp(),
       });

@@ -1,7 +1,7 @@
 import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { getRevealDb, type Clients } from '../../lib/thanksgiving/client';
-import { col, etDateTime } from '../../lib/thanksgiving/config';
+import { etDateTime } from '../../lib/thanksgiving/config';
 import { isLocked } from '../../lib/thanksgiving/kickoff';
 import { formatPoints } from '../../lib/thanksgiving/projection';
 import type { Answers } from '../../lib/thanksgiving/questions';
@@ -37,7 +37,7 @@ export function GamePanel({ clients, game, me, players, now, result }: Props) {
     if (!meId) return;
     let retry: ReturnType<typeof setTimeout> | undefined;
     const off = onSnapshot(
-      doc(clients.db, `${col(clients.contest, 'Games')}/${game.id}/picks/${meId}`),
+      doc(clients.db, `tgGames/${game.id}/picks/${meId}`),
       (snap) => setMine({ playerId: meId, answers: snap.exists() ? ((snap.get('answers') as Answers) ?? {}) : null }),
       (e) => {
         console.warn(`Couldn't load your picks yet (${e.code}); retrying.`);
@@ -59,10 +59,10 @@ export function GamePanel({ clients, game, me, players, now, result }: Props) {
     let cancelled = false;
     let off: (() => void) | undefined;
     let retry: ReturnType<typeof setTimeout> | undefined;
-    void getRevealDb(clients.contest, game.id).then((db) => {
+    void getRevealDb(game.id).then((db) => {
       if (cancelled) return;
       off = onSnapshot(
-        collection(db, `${col(clients.contest, 'Games')}/${game.id}/picks`),
+        collection(db, `tgGames/${game.id}/picks`),
         (snap) => setEveryone(snap.docs.map((d) => ({ playerId: d.id, answers: (d.get('answers') as Answers) ?? {} }))),
         (e) => {
           console.warn(`Couldn't load everyone's picks yet (${e.code}); retrying.`);
@@ -75,7 +75,7 @@ export function GamePanel({ clients, game, me, players, now, result }: Props) {
       off?.();
       if (retry) clearTimeout(retry);
     };
-  }, [clients.contest, game.id, locked, revealRetry]);
+  }, [game.id, locked, revealRetry]);
 
   const { line, projection } = game;
 

@@ -20,8 +20,9 @@ Only the Thursday games count. The Wednesday (Packers @ Rams) and Friday (Bronco
 part of the contest.
 
 Games, teams and kickoff times come from the live data feed, not from this table, so a schedule change is picked
-up automatically. The contest's games are every game on its ESPN scoreboard dates (here, just 20261126) whose
-kickoff falls on its ET days, numbered by kickoff. "The last game" below is game 3.
+up automatically. The contest's games are every game on its ESPN scoreboard dates (20261126; until Thursday
+morning also the practice games, see "Practice games") whose kickoff falls on its ET days, numbered by kickoff.
+"The last game" below is game 3, KC @ BUF.
 
 ## Players
 
@@ -300,8 +301,8 @@ Tests are written alongside the code and run in CI on every PR (a `test` job nex
    - missed kicks include blocked kicks but not failed 2-point tries
    - turnovers exclude turnovers on downs
    - projected (live) vs final status for each category
-   - the overall tiebreaker (closest total points in the last game: game 3, or game 2 of a two-game contest),
-     and co-champions when that's still tied
+   - the overall tiebreaker (closest total points in the last game: game 3, or game 5 while the practice games
+     are on), and co-champions when that's still tied
    - per-game co-winners when players tie on points
    - a 0–0 game (nobody gets "scores first" or "how the first score was made")
    - first TD scorer: a listed player's return TD counts as that player; an unlisted player's TD counts as
@@ -336,39 +337,41 @@ Tests are written alongside the code and run in CI on every PR (a `test` job nex
 Before merging, PRs also get the built-in `/code-review`, plus `/security-review` for anything touching
 sign-in or Firestore rules.
 
-8. **Test contest** (see "Test contest"): the real contest's dates, ET days and collection names are exactly as
-   above, and a call without a contest runs it; the test contest uses only its own dates and tgTest*
-   collections (refresh, sign-in, live worker, admin); Test1–Test10 are created only in the test contest, once,
-   without PINs; their seed picks are valid, complete, stable, made once per game, never replace a person's
-   picks, never appear in the real contest, and are scored into the test standings; every Firestore rule is tested on the tgTest* collections too, and a player of one contest
-   can't write the other's picks; `/thanksgiving-test` loads with its TEST banner, and a test player can sign in
-   and pick (end-to-end, and a read-only smoke check after deploy).
+8. **Practice games** (see "Practice games"): until 6:00 AM ET Thursday the contest has the Mon/Wed games
+   and the Thursday games, numbered by kickoff, and the live worker polls all three scoreboards; Test1–Test10
+   are created once, without PINs; their seed picks are valid, complete, stable, only for the practice games,
+   made once, never replace a person's picks, and are scored; the live worker's per-minute refresh seeds and
+   removes nothing; from 6:00 AM Thursday the contest is Thursday only, and the next scheduled refresh removes
+   the practice games (picks, live values, overrides, results) and Test1–Test10 (with all their picks, Thursday's
+   too), keeps real players with their PINs and Thursday picks, renumbers Thursday's games 1–3, clears the
+   standings, and removes nothing more on later runs.
 
-## Test contest
+## Practice games
 
-A separate practice copy of the game, to try it with real NFL games before Thanksgiving. It's removed after
-Wednesday's game.
+To try the game with real NFL games before Thanksgiving, the real page runs a practice until Thursday morning.
+Everything below is removed by itself at 6:00 AM ET Thursday, and the practice code comes out after Thursday.
 
-- **Pages:** `/thanksgiving-test` and `/thanksgiving-test/admin`. The same app, with a **TEST** banner and
-  `noindex`. The admin is the same email address and sign-in as the real admin screen.
-- **Games:** every game on ESPN's 20261123 and 20261125 scoreboards that falls on Mon, Nov 23 or Wed, Nov 25 ET,
-  ordered by kickoff (CIN @ WSH, 8:15 PM ET Monday; GB @ LAR, 8:00 PM ET Wednesday). All the rules above apply,
-  with "the last game" being game 2.
-- **Data:** its own Firestore collections, prefixed `tgTest` (`tgTestGames`, `tgTestPlayers`, ...), with the same
-  rules as the real ones. Nothing in the test contest reads or writes a `tg*` collection of the real contest.
-  Its sign-ins are kept separate in the browser, so trying the test page never signs you out of the real one.
-- **Players:** **Test1** through **Test10**, without PINs, created by the test contest's pre-game refresh if
-  they're missing (anyone can pick one). Anyone can also join with their own name, as in the real game. The real
-  contest never gets these players.
-- **Seed picks:** so a practice game always has a leaderboard, the same refresh gives each of Test1–Test10 a full,
-  valid set of answers (varied, and the same every time for a player and game) for every test game they have no
-  picks for, including one that has already kicked off. Picks someone made while signed in as a test player are
-  never replaced. They're scored like anyone else's.
-- **Functions:** the same four functions; a call with `?contest=test` runs the test contest, a call without one
-  runs the real contest exactly as before, and any other contest is refused.
-- **Schedules (ET):** the test pre-game refresh runs hourly on Nov 23 and 25, and once after each deploy. Its live
-  worker runs every minute from 1 hour before each test game's kickoff until 1:00 AM (Mon 7:15 PM–Tue 12:59 AM;
-  Wed 7:00 PM–Thu 12:59 AM). They don't overlap the real contest's live worker (Thursday from noon).
+- **Games:** until 6:00 AM ET Thursday, the contest's scoreboard dates are 20261123, 20261125 and 20261126,
+  so `/thanksgiving` also shows Monday's CIN @ WSH (8:15 PM ET) and Wednesday's GB @ LAR (8:00 PM ET), before
+  the three Thursday games. They're numbered by kickoff (the Thursday games are 3–5 until then), and all the
+  rules above apply to them; "the last game" is still KC @ BUF.
+- **Practice players:** **Test1** through **Test10**, without PINs, created by the scheduled pre-game refresh if
+  they're missing (anyone can pick one). Anyone can also join with their own name, as usual.
+- **Seed picks:** the same refresh gives each practice player a full, valid set of answers (varied, and the same
+  every time for a player and game) for each practice game they have no picks for, including one that has
+  already kicked off, so the scoring and leaderboard have players to show. Picks someone made while signed in as
+  a practice player are never replaced. Thursday's games never get seed picks.
+- **Schedules (ET):** the pre-game refresh also runs hourly on Nov 23 and 25. The live worker also runs every
+  minute from 1 hour before each practice kickoff until 1:00 AM (Mon 7:15 PM–Tue 12:59 AM; Wed 7:00 PM–Thu
+  12:59 AM).
+- **The end of the practice:** at 6:00 AM ET Thursday the contest becomes Thursday only, and the next scheduled
+  pre-game refresh (6:00 AM) removes:
+  - the Mon/Wed games, with all their picks, live values, overrides and results;
+  - Test1–Test10, with all their picks (Thursday's too);
+  - the standings, which the live worker publishes again from Thursday's games.
+
+  Real players are kept, with their PINs and their Thursday picks; their practice picks go with the practice
+  games. Thursday's games become games 1–3 again.
 
 ## Build order
 

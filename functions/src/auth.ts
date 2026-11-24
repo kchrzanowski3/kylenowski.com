@@ -6,7 +6,7 @@ import { randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { Auth } from 'firebase-admin/auth';
 import { FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore';
-import { REAL_CONTEST, col, type Contest } from '../../src/lib/thanksgiving/config';
+import { col, contestAt, type Contest } from '../../src/lib/thanksgiving/config';
 import { cleanName, isValidPin, nameKey, nameProblem, pinLockMs } from '../../src/lib/thanksgiving/players';
 
 const scrypt = promisify(scryptCb) as (pin: string, salt: Buffer, len: number) => Promise<Buffer>;
@@ -42,7 +42,7 @@ async function pinMatches(pin: string, secret: SecretDoc): Promise<boolean> {
 }
 
 /** Joining closes at the last game's kickoff, since there's nothing left to pick. */
-export async function joinClosesAt(db: Firestore, contest: Contest = REAL_CONTEST): Promise<number | null> {
+export async function joinClosesAt(db: Firestore, contest: Contest = contestAt(Date.now())): Promise<number | null> {
   const games = await db.collection(col(contest, 'Games')).get();
   let last: number | null = null;
   for (const g of games.docs) {
@@ -57,7 +57,7 @@ export async function joinPlayer(
   auth: Auth,
   input: { name?: unknown; pin?: unknown },
   now: number,
-  contest: Contest = REAL_CONTEST,
+  contest: Contest = contestAt(now),
 ): Promise<{ playerId: string; name: string; token: string }> {
   if (typeof input.name !== 'string') throw new AuthError(400, 'Type a name.');
   const problem = nameProblem(input.name);
@@ -98,13 +98,11 @@ async function createPlayer(
 }
 
 /**
- * Makes sure a seed player (Contest.seedPlayers, test contest only) exists, without a PIN. True if
- * it was created. Refuses the real contest, which never gets seed players.
+ * Makes sure a practice player (Contest.seedPlayers) exists, without a PIN. True if it was created.
+ * Refuses any other name, and every name once the practice is over (no seed players).
  */
 export async function ensurePlayer(db: Firestore, contest: Contest, name: string, now: number): Promise<boolean> {
-  if (contest.id === REAL_CONTEST.id || !contest.seedPlayers.includes(name)) {
-    throw new Error(`"${name}" isn't a seed player of the ${contest.id} contest`);
-  }
+  if (!contest.seedPlayers.includes(name)) throw new Error(`"${name}" isn't a practice player`);
   return (await createPlayer(db, contest, name, { pinHash: null, salt: null }, now)) !== null;
 }
 
@@ -113,7 +111,7 @@ export async function loginPlayer(
   auth: Auth,
   input: { playerId?: unknown; pin?: unknown },
   now: number,
-  contest: Contest = REAL_CONTEST,
+  contest: Contest = contestAt(now),
 ): Promise<{ token: string }> {
   if (typeof input.playerId !== 'string' || !/^[A-Za-z0-9]{1,40}$/.test(input.playerId)) {
     throw new AuthError(400, 'Pick your name from the list.');
@@ -160,7 +158,7 @@ export async function setPin(
   auth: Auth,
   idToken: unknown,
   pin: unknown,
-  contest: Contest = REAL_CONTEST,
+  contest: Contest = contestAt(Date.now()),
 ): Promise<void> {
   if (typeof idToken !== 'string' || idToken === '') throw new AuthError(401, 'Sign in first.');
   let uid: string;

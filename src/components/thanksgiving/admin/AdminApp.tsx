@@ -2,7 +2,6 @@ import { signOut, type User } from 'firebase/auth';
 import { collection, doc, limit, onSnapshot, orderBy, query, type Timestamp } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { adminCall, completeAdminLink, getAdminClients, sendAdminLink, watchUser, type Clients } from '../../../lib/thanksgiving/client';
-import { REAL_CONTEST, col, contestById, type CollectionName } from '../../../lib/thanksgiving/config';
 import type { Overrides } from '../../../lib/thanksgiving/scoring';
 import type { GameStats } from '../../../lib/thanksgiving/stats';
 import { toGame, type Game, type Player } from '../../../lib/thanksgiving/view';
@@ -37,9 +36,7 @@ interface LogEntry {
 
 const ms = (t: unknown) => ((t as Timestamp | undefined)?.toMillis?.() ?? null);
 
-/** `contest` is the page's contest id (config.ts); the real contest if not given. */
-export default function AdminApp({ contest: contestId }: { contest?: string }) {
-  const contest = contestById(contestId) ?? REAL_CONTEST;
+export default function AdminApp() {
   const [clients, setClients] = useState<Clients | null>(null);
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
@@ -52,41 +49,40 @@ export default function AdminApp({ contest: contestId }: { contest?: string }) {
   useEffect(() => {
     void (async () => {
       try {
-        const c = await getAdminClients(contest);
+        const c = await getAdminClients();
         await completeAdminLink(c.auth, () => window.prompt('Confirm your email address to finish signing in'));
         setClients(c);
       } catch (e) {
         setError(`Sign-in failed: ${e instanceof Error ? e.message : String(e)}`);
-        setClients(await getAdminClients(contest));
+        setClients(await getAdminClients());
       }
     })();
-  }, [contest]);
+  }, []);
 
   useEffect(() => (clients ? watchUser(clients.auth, setUser) : undefined), [clients]);
 
   useEffect(() => {
     if (!clients || !user) return;
     const { db } = clients;
-    const c = (name: CollectionName) => col(clients.contest, name);
     const denied = (e: { code?: string }) => {
       if (e.code === 'permission-denied') setNotAdmin(true);
       else setError(String(e));
     };
     const merge = (patch: Partial<AdminData>) => setData((d) => ({ ...d, ...patch }));
     const offs = [
-      onSnapshot(query(collection(db, c('Games')), orderBy('order')), (s) => merge({
+      onSnapshot(query(collection(db, 'tgGames'), orderBy('order')), (s) => merge({
         games: s.docs.map((d) => toGame(d.id, d.data())).filter((g): g is Game => g !== null),
         scorersFeed: Object.fromEntries(s.docs.map((d) => [d.id, d.get('scorersFeed') ?? d.get('scorers') ?? []])),
         scorerEdits: Object.fromEntries(s.docs.map((d) => [d.id, d.get('scorerEdits') ?? { added: [], removed: [] }])),
       })),
-      onSnapshot(query(collection(db, c('Players')), orderBy('name')), (s) => merge({ players: s.docs.map((d) => ({ id: d.id, name: d.get('name'), hasPin: !!d.get('hasPin') })) })),
-      onSnapshot(collection(db, c('Live')), (s) => { setNotAdmin(false); merge({ live: Object.fromEntries(s.docs.map((d) => [d.id, { feed: d.get('feed'), feedAt: d.get('feedAt') }])) }); }, denied),
-      onSnapshot(collection(db, c('Overrides')), (s) => merge({ overrides: Object.fromEntries(s.docs.map((d) => [d.id, d.data()])) }), denied),
-      onSnapshot(collection(db, c('Results')), (s) => merge({ published: Object.fromEntries(s.docs.map((d) => [d.id, d.get('stats')])) })),
-      onSnapshot(doc(db, `${c('Meta')}/worker`), (s) => setMeta((m) => ({ ...m, lastPollAt: ms(s.get('lastPollAt')), errors: s.get('lastErrors') ?? [] }))),
-      onSnapshot(doc(db, `${c('Meta')}/refresh`), (s) => setMeta((m) => ({ ...m, refreshAt: ms(s.get('lastRunAt')) }))),
-      onSnapshot(doc(db, `${c('Meta')}/config`), (s) => setMeta((m) => ({ ...m, delay: Number(s.get('spoilerDelaySec') ?? 0) }))),
-      onSnapshot(query(collection(db, c('AdminLog')), orderBy('at', 'desc'), limit(30)), (s) =>
+      onSnapshot(query(collection(db, 'tgPlayers'), orderBy('name')), (s) => merge({ players: s.docs.map((d) => ({ id: d.id, name: d.get('name'), hasPin: !!d.get('hasPin') })) })),
+      onSnapshot(collection(db, 'tgLive'), (s) => { setNotAdmin(false); merge({ live: Object.fromEntries(s.docs.map((d) => [d.id, { feed: d.get('feed'), feedAt: d.get('feedAt') }])) }); }, denied),
+      onSnapshot(collection(db, 'tgOverrides'), (s) => merge({ overrides: Object.fromEntries(s.docs.map((d) => [d.id, d.data()])) }), denied),
+      onSnapshot(collection(db, 'tgResults'), (s) => merge({ published: Object.fromEntries(s.docs.map((d) => [d.id, d.get('stats')])) })),
+      onSnapshot(doc(db, 'tgMeta/worker'), (s) => setMeta((m) => ({ ...m, lastPollAt: ms(s.get('lastPollAt')), errors: s.get('lastErrors') ?? [] }))),
+      onSnapshot(doc(db, 'tgMeta/refresh'), (s) => setMeta((m) => ({ ...m, refreshAt: ms(s.get('lastRunAt')) }))),
+      onSnapshot(doc(db, 'tgMeta/config'), (s) => setMeta((m) => ({ ...m, delay: Number(s.get('spoilerDelaySec') ?? 0) }))),
+      onSnapshot(query(collection(db, 'tgAdminLog'), orderBy('at', 'desc'), limit(30)), (s) =>
         setLog(s.docs.map((d) => ({ id: d.id, at: ms(d.get('at')) ?? 0, action: d.get('action'), details: d.get('details') ?? {} }))), denied),
     ];
     return () => offs.forEach((off) => off());
@@ -95,7 +91,7 @@ export default function AdminApp({ contest: contestId }: { contest?: string }) {
   if (!clients || user === undefined) return <p className="muted">Loading…</p>;
   if (!user) return <AdminSignIn clients={clients} error={error} />;
 
-  const call = (body: Record<string, unknown>) => adminCall(clients, body);
+  const call = (body: Record<string, unknown>) => adminCall(clients.auth, body);
   const ago = (t: number | null) => (t === null ? 'never' : `${Math.max(0, Math.round((now - t) / 1000))} seconds ago`);
 
   return (
@@ -153,7 +149,7 @@ function AdminSignIn({ clients, error }: { clients: Clients; error: string | nul
           className="tg-form"
           onSubmit={(e) => {
             e.preventDefault();
-            sendAdminLink(clients, email.trim()).then(() => setSent(true), (err: unknown) => setProblem(String(err)));
+            sendAdminLink(clients.auth, email.trim()).then(() => setSent(true), (err: unknown) => setProblem(String(err)));
           }}
         >
           <label htmlFor="tg-admin-email-input">Email</label>

@@ -3,9 +3,6 @@
 //   tgRefresh  private HTTPS, called by Cloud Scheduler  (the pre-game refresh)
 //   tgLive     private HTTPS, called by Cloud Scheduler every minute on game day (the live worker)
 //   tgAdmin    public HTTPS, admin's ID token required: POST / {action, ...}  (the admin service)
-//
-// Every function runs the real contest unless the URL has ?contest=test, which runs the test
-// contest (docs/thanksgiving-spec.md, "Test contest") on its own tgTest* collections and dates.
 
 import { http, type Request, type Response } from '@google-cloud/functions-framework';
 import { initializeApp } from 'firebase-admin/app';
@@ -17,7 +14,6 @@ import { AuthError, joinPlayer, loginPlayer, setPin } from './auth';
 import { fetchJson } from './espn-fetch';
 import { runLive } from './live';
 import { runPregameRefresh } from './refresh';
-import { contestById, type Contest } from '../../src/lib/thanksgiving/config';
 
 initializeApp();
 const db = getFirestore();
@@ -30,13 +26,6 @@ const ALLOWED_ORIGINS = [
   /^https:\/\/kylenowski-com--[a-z0-9-]+\.web\.app$/, // PR preview channels
   /^http:\/\/(localhost|127\.0\.0\.1):\d+$/,
 ];
-
-/** The contest a request names (?contest=); the real one if none. Sends a 404 and returns null if unknown. */
-function contestOf(req: Request, res: Response): Contest | null {
-  const contest = contestById(req.query?.contest);
-  if (!contest) res.status(404).json({ error: 'Unknown contest.' });
-  return contest;
-}
 
 function cors(req: Request, res: Response): boolean {
   const origin = req.get('origin');
@@ -61,8 +50,6 @@ http('tgAuth', async (req, res) => {
     res.status(405).json({ error: 'Use POST.' });
     return;
   }
-  const contest = contestOf(req, res);
-  if (!contest) return;
   const body = (typeof req.body === 'object' && req.body) || {};
   try {
     const now = Date.now();
@@ -70,14 +57,14 @@ http('tgAuth', async (req, res) => {
     // the function may or may not still carry the /tg-auth prefix.
     switch (`/${req.path.split('/').filter(Boolean).pop() ?? ''}`) {
       case '/join':
-        res.json(await joinPlayer(db, auth, body, now, contest));
+        res.json(await joinPlayer(db, auth, body, now));
         return;
       case '/login':
-        res.json(await loginPlayer(db, auth, body, now, contest));
+        res.json(await loginPlayer(db, auth, body, now));
         return;
       case '/pin': {
         const idToken = (req.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
-        await setPin(db, auth, idToken, body.pin, contest);
+        await setPin(db, auth, idToken, body.pin);
         res.json({ ok: true });
         return;
       }
@@ -125,24 +112,20 @@ http('tgAdmin', async (req, res) => {
       res.status(405).json({ error: 'Use POST.' });
       return;
     }
-    const contest = contestOf(req, res);
-    if (!contest) return;
     const idToken = (req.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
     const by = await verifyAdmin(auth, idToken, ADMIN_EMAIL);
     const body = (typeof req.body === 'object' && req.body) || {};
-    res.json(await adminAction(db, auth, by, body, Date.now(), contest));
+    res.json(await adminAction(db, auth, by, body, Date.now()));
   } catch (e) {
     sendError(res, e);
   }
 });
 
-http('tgLive', async (req, res) => {
+http('tgLive', async (_req, res) => {
   // Cloud Run IAM allows only the scheduler's service account to call this.
-  const contest = contestOf(req, res);
-  if (!contest) return;
   try {
-    const report = await runLive(db, fetchJson, { holder: randomUUID(), contest });
-    if (report.errors.length > 0) console.error(JSON.stringify({ message: 'live worker errors', contest: contest.id, ...report }));
+    const report = await runLive(db, fetchJson, { holder: randomUUID() });
+    if (report.errors.length > 0) console.error(JSON.stringify({ message: 'live worker errors', ...report }));
     res.json(report);
   } catch (e) {
     console.error(e);
@@ -150,13 +133,11 @@ http('tgLive', async (req, res) => {
   }
 });
 
-http('tgRefresh', async (req, res) => {
+http('tgRefresh', async (_req, res) => {
   // Cloud Run IAM allows only the scheduler's service account to call this.
-  const contest = contestOf(req, res);
-  if (!contest) return;
   try {
-    const report = await runPregameRefresh(db, fetchJson, Date.now, { contest });
-    console.log(JSON.stringify({ message: 'pre-game refresh', contest: contest.id, ...report }));
+    const report = await runPregameRefresh(db, fetchJson);
+    console.log(JSON.stringify({ message: 'pre-game refresh', ...report }));
     res.json(report);
   } catch (e) {
     console.error(e);

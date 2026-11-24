@@ -1,70 +1,48 @@
-// Contests (docs/thanksgiving-spec.md, "Games" and "Test contest"): the real contest is exactly the
-// Thanksgiving setup it always was; the test contest has its own dates and collections.
+// The contest and its practice games (docs/thanksgiving-spec.md, "Games" and "Practice games").
 import { describe, expect, it } from 'vitest';
-import { contestQuery } from '../../src/lib/thanksgiving/client';
 import {
   CONTEST_DATE,
   CONTEST_DAY_ET,
-  REAL_CONTEST,
-  TEST_CONTEST,
+  CUTOVER_MS,
+  PRACTICE_CONTEST,
+  THANKSGIVING_CONTEST,
   col,
-  contestById,
-  type CollectionName,
+  contestAt,
+  etDateTime,
 } from '../../src/lib/thanksgiving/config';
 
-const COLLECTIONS: CollectionName[] = [
-  'Games', 'Players', 'Secrets', 'Names', 'Live', 'Overrides', 'Results', 'Standings', 'Meta', 'AdminLog', 'SeasonGames',
-];
+const TESTS = ['Test1', 'Test2', 'Test3', 'Test4', 'Test5', 'Test6', 'Test7', 'Test8', 'Test9', 'Test10'];
 
-describe('the real contest', () => {
-  it('is Thursday, Nov 26 only, on the tg* collections, with no seed players', () => {
-    expect(REAL_CONTEST).toEqual({
-      id: 'thanksgiving',
+describe('the contest', () => {
+  it('from Thursday morning is Thursday, Nov 26 only, on the tg* collections, and retires the practice players', () => {
+    expect(THANKSGIVING_CONTEST).toEqual({
       dates: ['20261126'],
       daysEt: ['2026-11-26'],
       prefix: 'tg',
-      path: '/thanksgiving',
       seedPlayers: [],
+      seedPickDays: [],
+      retiredPlayers: TESTS,
     });
-    expect(CONTEST_DATE).toBe('20261126');
-    expect(CONTEST_DAY_ET).toBe('2026-11-26');
+    expect([CONTEST_DATE, CONTEST_DAY_ET]).toEqual(['20261126', '2026-11-26']);
+    expect(col(THANKSGIVING_CONTEST, 'Games')).toBe('tgGames');
   });
 
-  it('keeps its collection names', () => {
-    expect(COLLECTIONS.map((c) => col(REAL_CONTEST, c))).toEqual([
-      'tgGames', 'tgPlayers', 'tgSecrets', 'tgNames', 'tgLive', 'tgOverrides', 'tgResults', 'tgStandings', 'tgMeta',
-      'tgAdminLog', 'tgSeasonGames',
-    ]);
-  });
-
-  it('is what a request or page without a contest gets, and its calls carry no ?contest=', () => {
-    for (const id of [undefined, null, '', 'thanksgiving']) expect(contestById(id)).toBe(REAL_CONTEST);
-    expect(contestQuery(REAL_CONTEST)).toBe('');
-  });
-});
-
-describe('the test contest', () => {
-  it('is Mon Nov 23 and Wed Nov 25, on tgTest* collections, with players Test1-Test10', () => {
-    expect(TEST_CONTEST).toMatchObject({
-      id: 'test',
-      dates: ['20261123', '20261125'],
-      daysEt: ['2026-11-23', '2026-11-25'],
-      prefix: 'tgTest',
-      path: '/thanksgiving-test',
+  it('until then also has the Mon Nov 23 and Wed Nov 25 games, and Test1-Test10 with picks for those days', () => {
+    expect(PRACTICE_CONTEST).toEqual({
+      dates: ['20261123', '20261125', '20261126'],
+      daysEt: ['2026-11-23', '2026-11-25', '2026-11-26'],
+      prefix: 'tg',
+      seedPlayers: TESTS,
+      seedPickDays: ['2026-11-23', '2026-11-25'],
+      retiredPlayers: [],
     });
-    expect(TEST_CONTEST.seedPlayers).toEqual(['Test1', 'Test2', 'Test3', 'Test4', 'Test5', 'Test6', 'Test7', 'Test8', 'Test9', 'Test10']);
-    expect(contestById('test')).toBe(TEST_CONTEST);
-    expect(contestQuery(TEST_CONTEST)).toBe('?contest=test');
   });
 
-  it('shares no collection with the real contest', () => {
-    const real = new Set(COLLECTIONS.map((c) => col(REAL_CONTEST, c)));
-    const test = COLLECTIONS.map((c) => col(TEST_CONTEST, c));
-    expect(test.every((c) => c.startsWith('tgTest'))).toBe(true);
-    expect(test.filter((c) => real.has(c))).toEqual([]);
-  });
-
-  it('an unknown contest is refused rather than falling back to the real one', () => {
-    for (const id of ['tgTest', 'TEST', 'real', 3, {}]) expect(contestById(id)).toBeNull();
+  it('switches at 6:00 AM ET Thursday', () => {
+    expect(etDateTime(CUTOVER_MS)).toBe('Thu, Nov 26, 6:00 AM ET');
+    expect(contestAt(CUTOVER_MS - 1)).toBe(PRACTICE_CONTEST);
+    expect(contestAt(CUTOVER_MS)).toBe(THANKSGIVING_CONTEST);
+    // Wednesday night's practice game (and its live worker, until 1:00 AM) is still in the practice.
+    expect(contestAt(Date.parse('2026-11-26T05:59:00Z'))).toBe(PRACTICE_CONTEST);
   });
 });

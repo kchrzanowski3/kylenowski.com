@@ -1,4 +1,4 @@
-// The test contest's seed-player picks (docs/thanksgiving-spec.md, "Test contest").
+// The practice players' seed picks (docs/thanksgiving-spec.md, "Practice games").
 import { describe, expect, it } from 'vitest';
 import { QUESTION_COUNT, answerProblems, answeredCount } from '../../src/lib/thanksgiving/questions';
 import { seedAnswers } from '../../src/lib/thanksgiving/seed-picks';

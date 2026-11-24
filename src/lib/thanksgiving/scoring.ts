@@ -193,7 +193,7 @@ export interface Standings {
  * tied (or the tied players made no last-game guess), they share the rank: co-champions at the top.
  */
 export function overallStandings(playerIds: string[], games: ScoredGame[]): Standings {
-  // The last game by kickoff order: game 3 on Thanksgiving, game 2 in the test contest.
+  // The last game by kickoff order: game 3 on Thanksgiving (game 5 while the practice games are on).
   const last = [...games].sort((a, b) => b.order - a.order)[0];
   const tiebreak = (id: string): number | null => {
     const a = last?.picks.find((p) => p.playerId === id)?.answers;

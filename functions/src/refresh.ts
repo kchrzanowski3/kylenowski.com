@@ -2,9 +2,9 @@
 // Vegas projection, kickoff/lock times, the first-TD-scorer lists and the reference averages.
 // A game that has kicked off is frozen: nothing about it changes here any more.
 
-import { Timestamp, type Firestore } from 'firebase-admin/firestore';
+import { Timestamp, type DocumentReference, type DocumentSnapshot, type Firestore } from 'firebase-admin/firestore';
 import { seasonAverages } from '../../src/lib/thanksgiving/averages';
-import { REAL_CONTEST, SEASON, col, etDate, type Contest } from '../../src/lib/thanksgiving/config';
+import { SEASON, col, contestAt, etDate, type Contest } from '../../src/lib/thanksgiving/config';
 import { ESPN_CORE, ESPN_SITE, completedEventIds, deriveTeamGameStats, parseScoreboard, type FeedGame } from '../../src/lib/thanksgiving/espn';
 import { nextKickoff } from '../../src/lib/thanksgiving/kickoff';
 import { vegasProjection } from '../../src/lib/thanksgiving/projection';
@@ -22,10 +22,14 @@ export interface RefreshReport {
   seasonGames: number;
   newSeasonGames: number;
   errors: string[];
-  /** Test contest only: the seed players this run created (see Contest.seedPlayers). */
+  /** Practice only: the practice players this run created (Contest.seedPlayers). */
   seededPlayers?: string[];
-  /** Test contest only: how many seed-player picks this run created. */
+  /** Practice only: how many practice-player picks this run created. */
   seededPicks?: number;
+  /** Games removed because they're no longer on one of the contest's days (the practice games). */
+  removedGames?: string[];
+  /** Practice players removed, with their picks (Contest.retiredPlayers). */
+  removedPlayers?: string[];
 }
 
 const REGULAR_SEASON_WEEKS = 18;
@@ -107,7 +111,7 @@ export interface RefreshOptions {
    * worker, which refreshes every minute until each kickoff, skips this and keeps the stored ones.
    */
   seasonAverages?: boolean;
-  /** Which contest to refresh; the real one unless given. */
+  /** Which contest to refresh; the one in effect at the clock's time unless given. */
   contest?: Contest;
 }
 
@@ -130,13 +134,17 @@ export async function runPregameRefresh(
   options: RefreshOptions = {},
 ): Promise<RefreshReport> {
   const withSeason = options.seasonAverages ?? true;
-  const contest = options.contest ?? REAL_CONTEST;
+  const contest = options.contest ?? contestAt(clock());
   const errors: string[] = [];
   const report: RefreshReport = { games: [], seasonGames: 0, newSeasonGames: 0, errors };
 
-  // Test contest only (the real contest has no seed players): Test1-Test10, without PINs, if
-  // missing. Done first so they exist even when the feed is down. The live worker's per-minute
-  // refresh (withSeason false) leaves this to the scheduled runs.
+  // The practice (docs/thanksgiving-spec.md, "Practice games"). Only the scheduled runs do this;
+  // the live worker's per-minute refresh (withSeason false) leaves it to them.
+  // Once the practice is over: remove the practice games and players first, so nothing below
+  // sees them.
+  if (withSeason) await endPractice(db, contest, report);
+  // During the practice: Test1-Test10, without PINs, if missing. Done before the feed is read so
+  // they exist even when it's down.
   if (withSeason && contest.seedPlayers.length > 0) {
     report.seededPlayers = [];
     for (const name of contest.seedPlayers) {
@@ -226,19 +234,19 @@ export async function runPregameRefresh(
 }
 
 /**
- * Test contest only: gives each seed player a full set of picks for every game they have none for,
- * including a game that has already kicked off, so a practice game always has players to score.
- * Picks a person has made (signed in as a seed player) are never replaced. Returns how many it made.
+ * Practice only: gives each practice player a full set of picks for every practice game they have
+ * none for, including one that has already kicked off, so a practice game always has players to
+ * score. Picks a person made (signed in as a practice player) are never replaced, and Thursday's
+ * games never get seed picks. Returns how many it made.
  */
 async function seedPicks(db: Firestore, contest: Contest, now: number): Promise<number> {
-  if (contest.id === 'thanksgiving') throw new Error('the real contest has no seed players');
   const names = await db.getAll(...contest.seedPlayers.map((n) => db.collection(col(contest, 'Names')).doc(nameKey(n))));
   const players = names
     .map((snap, i) => ({ name: contest.seedPlayers[i], id: snap.get('playerId') as string | undefined }))
     .filter((p): p is { name: string; id: string } => typeof p.id === 'string');
   const games = await db.collection(col(contest, 'Games')).get();
   let made = 0;
-  for (const g of games.docs) {
+  for (const g of games.docs.filter((d) => contest.seedPickDays.includes(storedDay(d)))) {
     const refs = players.map((p) => db.doc(`${col(contest, 'Games')}/${g.id}/picks/${p.id}`));
     const existing = refs.length > 0 ? await db.getAll(...refs) : [];
     const batch = db.batch();
@@ -253,4 +261,62 @@ async function seedPicks(db: Firestore, contest: Contest, now: number): Promise<
     made += n;
   }
   return made;
+}
+
+/** The ET day a stored game is on, by the feed's kickoff (an admin's kickoff change doesn't move it). */
+function storedDay(d: DocumentSnapshot): string {
+  const t = (d.get('kickoffFromFeed') ?? d.get('kickoff')) as Timestamp | undefined;
+  return t ? etDate(t.toMillis()) : '';
+}
+
+/** Deletes these docs, in batches. */
+async function deleteAll(db: Firestore, refs: DocumentReference[]): Promise<void> {
+  for (let i = 0; i < refs.length; i += 400) {
+    const batch = db.batch();
+    for (const ref of refs.slice(i, i + 400)) batch.delete(ref);
+    await batch.commit();
+  }
+}
+
+/**
+ * The end of the practice (from 6:00 AM ET Thursday, see config.ts): removes every stored game that
+ * isn't on one of the contest's days (the Mon/Wed practice games), with its picks, live values,
+ * overrides and results; then removes the practice players (Contest.retiredPlayers) with their
+ * picks. Real players, and their picks for Thursday's games, are kept. If anything was removed, the
+ * standings are cleared; the live worker publishes fresh ones from Thursday's games.
+ */
+async function endPractice(db: Firestore, contest: Contest, report: RefreshReport): Promise<void> {
+  const gamesCol = col(contest, 'Games');
+  const games = await db.collection(gamesCol).get();
+  // A game whose day can't be told is kept: only a game known to be on another day is removed.
+  const stale = games.docs.filter((d) => storedDay(d) !== '' && !contest.daysEt.includes(storedDay(d)));
+  for (const g of stale) {
+    const picks = await db.collection(`${gamesCol}/${g.id}/picks`).listDocuments();
+    await deleteAll(db, [
+      ...picks,
+      db.doc(`${col(contest, 'Live')}/${g.id}`),
+      db.doc(`${col(contest, 'Overrides')}/${g.id}`),
+      db.doc(`${col(contest, 'Results')}/${g.id}`),
+      g.ref,
+    ]);
+  }
+  if (stale.length > 0) report.removedGames = stale.map((g) => g.id);
+
+  const removed: string[] = [];
+  const kept = games.docs.filter((d) => !stale.includes(d));
+  for (const name of contest.retiredPlayers) {
+    const nameRef = db.collection(col(contest, 'Names')).doc(nameKey(name));
+    const id = (await nameRef.get()).get('playerId') as string | undefined;
+    if (!id) continue;
+    await deleteAll(db, [
+      ...kept.map((g) => db.doc(`${gamesCol}/${g.id}/picks/${id}`)),
+      db.doc(`${col(contest, 'Secrets')}/${id}`),
+      db.doc(`${col(contest, 'Players')}/${id}`),
+      nameRef,
+    ]);
+    removed.push(name);
+  }
+  if (removed.length > 0) report.removedPlayers = removed;
+
+  if (stale.length > 0 || removed.length > 0) await db.doc(`${col(contest, 'Standings')}/overall`).delete();
 }

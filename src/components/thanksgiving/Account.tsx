@@ -14,7 +14,7 @@ export function Account({ clients, me }: { clients: Clients; me: Player }) {
     if (!isValidPin(pin)) return setMessage({ ok: false, text: 'A PIN is 4 digits.' });
     setBusy(true);
     try {
-      await changePin(clients, pin);
+      await changePin(clients.auth, pin);
       setMessage({ ok: true, text: 'PIN saved.' });
       setEditing(false);
       setPin('');

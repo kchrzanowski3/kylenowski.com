@@ -163,14 +163,6 @@ jobs:
           gcloud scheduler jobs run tg-pregame-daily --location us-central1 --project "$GCP_PROJECT_ID"
           echo "Started the pre-game refresh (tg-pregame-daily)." >> "$GITHUB_STEP_SUMMARY"
 
-      # The test contest's refresh (docs/thanksgiving-spec.md, "Test contest"): its games and its
-      # players Test1-Test10. Same function, ?contest=test, tgTest* collections only.
-      - name: Run the test contest's pre-game refresh once (main only)
-        if: env.IS_DEPLOY == 'true'
-        run: |
-          gcloud scheduler jobs run tg-test-pregame-hourly --location us-central1 --project "$GCP_PROJECT_ID"
-          echo "Started the test contest's pre-game refresh (tg-test-pregame-hourly)." >> "$GITHUB_STEP_SUMMARY"
-
       - name: Outputs summary (main only)
         if: env.IS_DEPLOY == 'true'
         run: |

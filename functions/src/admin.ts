@@ -5,7 +5,7 @@
 
 import type { Auth } from 'firebase-admin/auth';
 import { FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore';
-import { REAL_CONTEST, col, type CollectionName, type Contest } from '../../src/lib/thanksgiving/config';
+import { col, contestAt, type CollectionName, type Contest } from '../../src/lib/thanksgiving/config';
 import { canSetKickoff } from '../../src/lib/thanksgiving/kickoff';
 import { cleanName, nameKey, nameProblem } from '../../src/lib/thanksgiving/players';
 import { OVERRIDABLE, type OverrideKey } from '../../src/lib/thanksgiving/scoring';
@@ -107,7 +107,7 @@ export async function adminAction(
   by: string,
   body: any,
   now: number,
-  contest: Contest = REAL_CONTEST,
+  contest: Contest = contestAt(now),
 ): Promise<Record<string, unknown>> {
   const action = String(body?.action ?? '');
   const c = (name: CollectionName) => col(contest, name);

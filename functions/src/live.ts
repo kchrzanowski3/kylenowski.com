@@ -12,7 +12,7 @@
 // Writes happen only when something changed.
 
 import { Timestamp, type Firestore } from 'firebase-admin/firestore';
-import { REAL_CONTEST, col, type Contest } from '../../src/lib/thanksgiving/config';
+import { col, contestAt, type Contest } from '../../src/lib/thanksgiving/config';
 import { ESPN_CORE, ESPN_SITE } from '../../src/lib/thanksgiving/espn';
 import { applyOverrides, overallStandings, scoreGame, type Overrides, type PlayerPick, type ScoredGame } from '../../src/lib/thanksgiving/scoring';
 import { deriveGameStats, feedStatus, preGameStats, scorerIdFromCorePlay, type GameStats } from '../../src/lib/thanksgiving/stats';
@@ -74,7 +74,7 @@ export async function pollFeed(
   now: number,
   games: GameRow[],
   errors: string[] = [],
-  contest: Contest = REAL_CONTEST,
+  contest: Contest = contestAt(now),
 ): Promise<string[]> {
   const started = games.filter((g) => g.kickoff <= now);
   if (started.length === 0) return [];
@@ -148,7 +148,7 @@ export interface PublishReport {
  * changed: tgResults/{game} and tgStandings/overall. Also used for the one-off re-scoring after an
  * admin change, so it reads everything fresh.
  */
-export async function publish(db: Firestore, now: number, gamesIn?: GameRow[], contest: Contest = REAL_CONTEST): Promise<PublishReport> {
+export async function publish(db: Firestore, now: number, gamesIn?: GameRow[], contest: Contest = contestAt(now)): Promise<PublishReport> {
   const c = (name: Parameters<typeof col>[1]) => col(contest, name);
   const games = gamesIn ?? (await loadGames(db, contest));
   const delaySec = Number((await db.doc(`${c('Meta')}/config`).get()).get('spoilerDelaySec') ?? 0);
@@ -196,7 +196,7 @@ export async function publish(db: Firestore, now: number, gamesIn?: GameRow[], c
 }
 
 /** Ends this call's lease, so the next minute's call can start right away. */
-export async function releaseLease(db: Firestore, holder: string, now: number, contest: Contest = REAL_CONTEST): Promise<void> {
+export async function releaseLease(db: Firestore, holder: string, now: number, contest: Contest = contestAt(now)): Promise<void> {
   const ref = db.doc(`${col(contest, 'Meta')}/worker`);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
@@ -210,7 +210,7 @@ export async function takeLease(
   holder: string,
   now: number,
   forMs = 75_000,
-  contest: Contest = REAL_CONTEST,
+  contest: Contest = contestAt(now),
 ): Promise<boolean> {
   const ref = db.doc(`${col(contest, 'Meta')}/worker`);
   return db.runTransaction(async (tx) => {
@@ -238,10 +238,10 @@ export async function runLive(
   fetchJson: FetchJson,
   opts: { holder: string; budgetMs?: number; clock?: () => number; sleep?: (ms: number) => Promise<void>; contest?: Contest },
 ): Promise<LiveRunReport> {
-  const contest = opts.contest ?? REAL_CONTEST;
   const clock = opts.clock ?? Date.now;
   const sleep = opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
   const start = clock();
+  const contest = opts.contest ?? contestAt(start);
   const budget = opts.budgetMs ?? 50_000;
   const report: LiveRunReport = { ran: false, polls: 0, errors: [] };
   if (!(await takeLease(db, opts.holder, start, undefined, contest))) return report;

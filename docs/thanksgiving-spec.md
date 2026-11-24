@@ -20,12 +20,14 @@ Only the Thursday games count. The Wednesday (Packers @ Rams) and Friday (Bronco
 part of the contest.
 
 Games, teams and kickoff times come from the live data feed, not from this table, so a schedule change is picked
-up automatically.
+up automatically. The contest's games are every game on its ESPN scoreboard dates (20261126; until Thursday
+morning also the practice games, see "Practice games") whose kickoff falls on its ET days, numbered by kickoff.
+"The last game" below is game 3, KC @ BUF.
 
 ## Players
 
 - **Joining:** type a name, and optionally set a **4-digit PIN**. Names are unique, ignoring case ("kyle" and
-  "Kyle" can't both join). Joining closes at game 3's kickoff, since there's nothing left to pick.
+  "Kyle" can't both join). Joining closes at the last game's kickoff (game 3), since there's nothing left to pick.
 - **Logging in on any device:** pick your name from the list of players. If that name has a PIN, enter it. The
   PIN is checked by the sign-in service (see "How it's built"), which limits wrong guesses so a PIN can't be
   found by trying all 10,000.
@@ -131,9 +133,9 @@ The most anyone can score in one game is **37**, if they pick a safety correctly
 ### Overall (default view)
 - Shown at the top of `/thanksgiving` as soon as the first game kicks off.
 - One **running total across all 3 games**.
-- **Tiebreaker for the overall champion:** whoever's game 3 final-score guess (away + home) is closest to that
-  game's actual total points. No extra question needed. If that's still tied (equally close, or the tied
-  players didn't pick game 3's final score), they're **co-champions**.
+- **Tiebreaker for the overall champion:** whoever's final-score guess (away + home) for the last game (game 3)
+  is closest to that game's actual total points. No extra question needed. If that's still tied (equally close,
+  or the tied players didn't pick the last game's final score), they're **co-champions**.
 - Expand a player to see their points per game.
 
 ### Per-game scoreboard
@@ -299,7 +301,8 @@ Tests are written alongside the code and run in CI on every PR (a `test` job nex
    - missed kicks include blocked kicks but not failed 2-point tries
    - turnovers exclude turnovers on downs
    - projected (live) vs final status for each category
-   - the overall tiebreaker (closest game 3 total points), and co-champions when that's still tied
+   - the overall tiebreaker (closest total points in the last game: game 3, or game 5 while the practice games
+     are on), and co-champions when that's still tied
    - per-game co-winners when players tie on points
    - a 0–0 game (nobody gets "scores first" or "how the first score was made")
    - first TD scorer: a listed player's return TD counts as that player; an unlisted player's TD counts as
@@ -320,7 +323,7 @@ Tests are written alongside the code and run in CI on every PR (a `test` job nex
    - standings, the player list and revealed picks are readable without signing in; PINs never are
 4. **Sign-in service (Vitest):** joining with a name already taken (ignoring case) is refused; a wrong PIN is
    refused and repeated wrong guesses are slowed down; a right PIN signs in on a new device; players can add
-   or change their own PIN; joining closes at game 3's kickoff.
+   or change their own PIN; joining closes at the last game's kickoff.
 5. **First-TD-scorer list:** built from a recorded depth chart, it has each team's top 2 QBs, top 2 RBs, 3
    starting WRs and starting TE, and drops players ruled out or inactive. Run against recorded feeds, the
    pre-game refresh writes the games, lines, projections and averages, and leaves a game that has kicked off
@@ -333,6 +336,42 @@ Tests are written alongside the code and run in CI on every PR (a `test` job nex
 
 Before merging, PRs also get the built-in `/code-review`, plus `/security-review` for anything touching
 sign-in or Firestore rules.
+
+8. **Practice games** (see "Practice games"): until 6:00 AM ET Thursday the contest has the Mon/Wed games
+   and the Thursday games, numbered by kickoff, and the live worker polls all three scoreboards; Test1–Test10
+   are created once, without PINs; their seed picks are valid, complete, stable, only for the practice games,
+   made once, never replace a person's picks, and are scored; the live worker's per-minute refresh seeds and
+   removes nothing; from 6:00 AM Thursday the contest is Thursday only, and the next scheduled refresh removes
+   the practice games (picks, live values, overrides, results) and Test1–Test10 (with all their picks, Thursday's
+   too), keeps real players with their PINs and Thursday picks, renumbers Thursday's games 1–3, clears the
+   standings, and removes nothing more on later runs.
+
+## Practice games
+
+To try the game with real NFL games before Thanksgiving, the real page runs a practice until Thursday morning.
+Everything below is removed by itself at 6:00 AM ET Thursday, and the practice code comes out after Thursday.
+
+- **Games:** until 6:00 AM ET Thursday, the contest's scoreboard dates are 20261123, 20261125 and 20261126,
+  so `/thanksgiving` also shows Monday's CIN @ WSH (8:15 PM ET) and Wednesday's GB @ LAR (8:00 PM ET), before
+  the three Thursday games. They're numbered by kickoff (the Thursday games are 3–5 until then), and all the
+  rules above apply to them; "the last game" is still KC @ BUF.
+- **Practice players:** **Test1** through **Test10**, without PINs, created by the scheduled pre-game refresh if
+  they're missing (anyone can pick one). Anyone can also join with their own name, as usual.
+- **Seed picks:** the same refresh gives each practice player a full, valid set of answers (varied, and the same
+  every time for a player and game) for each practice game they have no picks for, including one that has
+  already kicked off, so the scoring and leaderboard have players to show. Picks someone made while signed in as
+  a practice player are never replaced. Thursday's games never get seed picks.
+- **Schedules (ET):** the pre-game refresh also runs hourly on Nov 23 and 25. The live worker also runs every
+  minute from 1 hour before each practice kickoff until 1:00 AM (Mon 7:15 PM–Tue 12:59 AM; Wed 7:00 PM–Thu
+  12:59 AM).
+- **The end of the practice:** at 6:00 AM ET Thursday the contest becomes Thursday only, and the next scheduled
+  pre-game refresh (6:00 AM) removes:
+  - the Mon/Wed games, with all their picks, live values, overrides and results;
+  - Test1–Test10, with all their picks (Thursday's too);
+  - the standings, which the live worker publishes again from Thursday's games.
+
+  Real players are kept, with their PINs and their Thursday picks; their practice picks go with the practice
+  games. Thursday's games become games 1–3 again.
 
 ## Build order
 

@@ -2,7 +2,8 @@
 // (docs/thanksgiving-spec.md, "Pre-game refresh", "Locking and reveal" and Testing §5).
 import { Timestamp } from 'firebase-admin/firestore';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { runPregameRefresh, type FetchJson } from '../../functions/src/refresh';
+import { runPregameRefresh as runRefresh, type FetchJson, type RefreshOptions } from '../../functions/src/refresh';
+import { THANKSGIVING_CONTEST } from '../../src/lib/thanksgiving/config';
 import { load } from '../unit/fixtures';
 import { clearFirestore, db } from './admin-app';
 
@@ -46,6 +47,9 @@ function fakeEspn(overrides: { thursday?: (sb: any) => any } = {}) {
 }
 
 const MONDAY = Date.parse('2026-11-23T14:00:00Z');
+// These tests are about the Thursday contest itself (the practice games are in practice.test.ts).
+const runPregameRefresh = (d: typeof db, f: FetchJson, clock: () => number, opts: RefreshOptions = {}) =>
+  runRefresh(d, f, clock, { contest: THANKSGIVING_CONTEST, ...opts });
 const GAME1 = '401873081'; // CHI @ DET, 1:00 PM ET
 const GAME2 = '401873080'; // PHI @ DAL, 4:30 PM ET
 const game = async (id: string) => (await db.doc(`tgGames/${id}`).get()).data()!;

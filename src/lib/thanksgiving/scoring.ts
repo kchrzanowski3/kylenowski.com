@@ -188,16 +188,17 @@ export interface Standings {
 }
 
 /**
- * Overall standings: one running total across the games. Ties on total are broken by whose game-3
+ * Overall standings: one running total across the games. Ties on total are broken by whose last-game
  * final-score guess (away + home) is closest to that game's actual total points; if that's still
- * tied (or the tied players made no game-3 guess), they share the rank: co-champions at the top.
+ * tied (or the tied players made no last-game guess), they share the rank: co-champions at the top.
  */
 export function overallStandings(playerIds: string[], games: ScoredGame[]): Standings {
-  const game3 = games.find((g) => g.order === 3) ?? [...games].sort((a, b) => b.order - a.order)[0];
+  // The last game by kickoff order: game 3 on Thanksgiving (game 5 while the practice games are on).
+  const last = [...games].sort((a, b) => b.order - a.order)[0];
   const tiebreak = (id: string): number | null => {
-    const a = game3?.picks.find((p) => p.playerId === id)?.answers;
-    if (!game3 || a?.finalAway === undefined || a?.finalHome === undefined) return null;
-    return Math.abs(a.finalAway + a.finalHome - (game3.stats.away + game3.stats.home));
+    const a = last?.picks.find((p) => p.playerId === id)?.answers;
+    if (!last || a?.finalAway === undefined || a?.finalHome === undefined) return null;
+    return Math.abs(a.finalAway + a.finalHome - (last.stats.away + last.stats.home));
   };
   const rows: StandingRow[] = playerIds.map((id) => {
     const byGame: Record<string, number> = {};

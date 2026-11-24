@@ -287,6 +287,16 @@ describe('overall standings', () => {
     expect(s.champions).toEqual(['a', 'b']);
   });
 
+  it('the tiebreaker is the last game: game 5 while the practice games are on', () => {
+    // Same guesses as above, on game 2 of 2: a is exact (44), b is off by 8. A game-1 guess doesn't count.
+    const g1 = game(1, stats({ punts: 8 }), [pick('a', { punts: 8, finalAway: 24, finalHome: 28 }), pick('b', { punts: 8, finalAway: 16, finalHome: 28 })]);
+    const g2 = game(2, stats(), [pick('a', { finalAway: 16, finalHome: 28 }), pick('b', { finalAway: 24, finalHome: 28 })]);
+    const s = overallStandings(['a', 'b'], [g1, g2]);
+    expect(s.rows[0].total).toBe(s.rows[1].total);
+    expect(s.rows.map((r) => [r.playerId, r.tiebreak, r.rank])).toEqual([['a', 0, 1], ['b', 8, 2]]);
+    expect(s.champions).toEqual(['a']);
+  });
+
   it('a game-3 guess beats no guess in the tiebreaker', () => {
     // b's 52-point guess is off by 8 (and scores 3 + 1 + 1); a gets the same 5 from game 1 instead.
     const g1 = game(1, stats({ punts: 8, sacks: 5, missedKick: false }), [pick('a', { punts: 8, missedKick: false, firstTeam: 'home' })]);

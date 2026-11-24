@@ -280,12 +280,17 @@ resource "google_cloud_run_v2_service_iam_member" "tg_refresh_scheduler" {
 # --- Pre-game refresh schedule (spec, "Pre-game refresh") ---------------------
 # Daily at 9:00 AM ET from launch through Wednesday (Nov 23-25 only, so it stops
 # by itself), and hourly on Thursday until noon ET, when the live worker (PR 2)
-# takes over. CI also runs it once after each deploy.
+# takes over. CI also runs it once after each deploy. The 6:00 AM Thursday run is
+# the first after the end of the practice (config.ts, CUTOVER_MS): it removes the
+# Mon/Wed practice games and the practice players.
 # Games that have kicked off are frozen, so later runs don't change them.
 locals {
   tg_refresh_schedules = {
     "tg-pregame-daily"    = "0 9 23-25 11 *"
     "tg-pregame-thursday" = "0 0-11 26 11 *"
+    # Practice games (spec, "Practice games"): hourly on Mon Nov 23 and Wed Nov 25, apart from
+    # 9:00, which tg-pregame-daily covers. Removed with the practice code after Thursday.
+    "tg-pregame-practice" = "0 0-8,10-23 23,25 11 *"
   }
 }
 
@@ -343,3 +348,41 @@ resource "google_cloud_scheduler_job" "tg_live" {
   depends_on = [google_project_service.thanksgiving, google_cloud_run_v2_service_iam_member.tg_live_scheduler]
 }
 
+# Practice games (spec, "Practice games"): the same live worker, every minute
+# from 1 hour before each practice kickoff (Mon Nov 23 CIN @ WSH 8:15 PM ET,
+# Wed Nov 25 GB @ LAR 8:00 PM ET) until 1:00 AM. Removed after Thursday.
+locals {
+  tg_live_practice_schedules = {
+    "tg-live-practice-mon-pregame" = "15-59 19 23 11 *" # Mon 7:15-7:59 PM
+    "tg-live-practice-mon"         = "* 20-23 23 11 *"  # Mon 8:00-11:59 PM
+    "tg-live-practice-mon-late"    = "* 0 24 11 *"      # Tue 12:00-12:59 AM
+    "tg-live-practice-wed"         = "* 19-23 25 11 *"  # Wed 7:00-11:59 PM
+    "tg-live-practice-wed-late"    = "* 0 26 11 *"      # Thu 12:00-12:59 AM
+  }
+}
+
+resource "google_cloud_scheduler_job" "tg_live_practice" {
+  for_each = local.tg_live_practice_schedules
+
+  name             = each.key
+  region           = var.region
+  schedule         = each.value
+  time_zone        = "America/New_York"
+  attempt_deadline = "120s"
+
+  retry_config {
+    retry_count = 0 # the next minute's call is the retry
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tg["live"].service_config[0].uri
+
+    oidc_token {
+      service_account_email = google_service_account.tg_scheduler.email
+      audience              = google_cloudfunctions2_function.tg["live"].service_config[0].uri
+    }
+  }
+
+  depends_on = [google_project_service.thanksgiving, google_cloud_run_v2_service_iam_member.tg_live_scheduler]
+}

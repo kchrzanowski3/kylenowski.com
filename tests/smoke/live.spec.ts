@@ -32,8 +32,10 @@ test('/thanksgiving loads its games and sign-in, with no console errors', async 
   expect(res?.status()).toBe(200);
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
 
-  // The React app reached Firebase and Firestore: the three Thursday games and the sign-in card.
-  await expect(page.getByRole('navigation', { name: 'Games' }).getByRole('button')).toHaveCount(3, { timeout: 20_000 });
+  // The React app reached Firebase and Firestore: the three Thursday games (and, until Thursday
+  // morning, the practice games: docs/thanksgiving-spec.md, "Practice games") and the sign-in card.
+  const tabs = page.getByRole('navigation', { name: 'Games' }).getByRole('button');
+  await expect.poll(() => tabs.count(), { timeout: 20_000 }).toBeGreaterThanOrEqual(3);
   const signedOut = page.getByRole('heading', { name: /Who are you\?|Join the game/ });
   await expect(signedOut).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);

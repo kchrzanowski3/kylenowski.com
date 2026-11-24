@@ -5,7 +5,7 @@ import { etDateTime } from '../../lib/thanksgiving/config';
 import { isLocked } from '../../lib/thanksgiving/kickoff';
 import type { Answers } from '../../lib/thanksgiving/questions';
 import { countdown, type Game, type GamePhase, type Pick, type Player } from '../../lib/thanksgiving/view';
-import { PhaseBadge, TeamLogo } from './icons';
+import { CheckIcon, PhaseBadge, TeamLogo } from './icons';
 import { PickForm } from './PickForm';
 import { Scoreboard, gameClock, type GameResult } from './Scoreboard';
 
@@ -98,17 +98,19 @@ export function GamePanel({ clients, game, me, players, now, result, phase, next
           <span className="tg-matchup-team">{game.home.shortName} <TeamLogo team={game.home} size={42} /></span>
         </h2>
         <div className="tg-game-meta">
-          {scored && (
+          {scored ? (
             <span className={phase === 'live' ? 'tg-clock tg-clock-live' : 'tg-clock'} data-testid="tg-clock">
               {phase === 'live' && <span className="tg-live-pill-dot" aria-hidden="true" />}
+              {phase === 'final' && <CheckIcon size={13} />}
               {gameClock(result!.stats)}
             </span>
+          ) : (
+            <PhaseBadge
+              phase={phase}
+              text={phase === 'open' ? countdown(game.kickoff - now) : phase === 'live' ? 'Live' : 'Final'}
+              testId="tg-lock-status"
+            />
           )}
-          <PhaseBadge
-            phase={phase}
-            text={phase === 'open' ? countdown(game.kickoff - now) : phase === 'live' ? 'Live' : 'Final'}
-            testId="tg-lock-status"
-          />
           <span className="tg-game-broadcast">
             {etDateTime(game.kickoff)}
             {game.tv ? ` · ${game.tv}` : ''}

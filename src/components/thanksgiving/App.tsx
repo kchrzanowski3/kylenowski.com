@@ -1,13 +1,14 @@
 import type { User } from 'firebase/auth';
 import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getClients, watchUser, type Clients } from '../../lib/thanksgiving/client';
+import { getClients, switchPlayer, watchUser, type Clients } from '../../lib/thanksgiving/client';
 import { QUESTION_COUNT, answeredCount, type Answers } from '../../lib/thanksgiving/questions';
 import type { Standings as StandingsData } from '../../lib/thanksgiving/scoring';
 import { autoGameId, gamePhase, lockedPoints, lockedPointsByGame, toGame, type Game, type Player } from '../../lib/thanksgiving/view';
 import { TvView } from './TvView';
 import { AccountMenu } from './AccountMenu';
-import { PhaseBadge, TeamLogo } from './icons';
+import { CloseIcon, PhaseBadge, TeamLogo } from './icons';
+import { RulesModal } from './RulesModal';
 import type { GameResult } from './Scoreboard';
 import { Standings } from './Standings';
 import { GamePanel } from './GamePanel';
@@ -104,6 +105,20 @@ export default function App() {
   const [tv, setTv] = useState(false);
   const exitTv = useCallback(() => setTv(false), []);
   const enterTv = useCallback(() => setTv(true), []);
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const openRules = useCallback(() => setRulesOpen(true), []);
+  const closeRules = useCallback(() => setRulesOpen(false), []);
+
+  // Brief confirmation/undo toast after one-tap sign-in on a PIN-less family chip.
+  const [signInToast, setSignInToast] = useState<Player | null>(null);
+  useEffect(() => {
+    if (!signInToast) return;
+    const t = setTimeout(() => setSignInToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [signInToast]);
+  useEffect(() => {
+    if (signInToast && me && me.id !== signInToast.id) setSignInToast(null);
+  }, [me, signInToast]);
 
   if (loadError) return <p className="tg-error" role="alert">{loadError}</p>;
   if (!clients || games === null || players === null || user === undefined) return <p className="muted">Loading…</p>;
@@ -126,9 +141,35 @@ export default function App() {
 
   return (
     <div className={showStandings ? 'tg tg-arena tg-arena-split' : 'tg tg-arena'}>
-      <AccountMenu clients={clients} me={me} onFullScreen={enterTv} />
+      <AccountMenu clients={clients} me={me} onFullScreen={enterTv} onOpenRules={openRules} />
       {tv && (
         <TvView games={games} phases={phases} results={results} standings={standings} locked={locked} players={players} onExit={exitTv} />
+      )}
+      {rulesOpen && <RulesModal onClose={closeRules} />}
+      {signInToast && (
+        <div className="tg-toast" role="status" aria-live="polite" data-testid="tg-signin-toast">
+          <span className="tg-toast-text">
+            Signed in as <strong>{signInToast.name}</strong>
+          </span>
+          <button
+            type="button"
+            className="tg-toast-action"
+            onClick={() => {
+              setSignInToast(null);
+              void switchPlayer(clients.auth);
+            }}
+          >
+            Switch
+          </button>
+          <button
+            type="button"
+            className="tg-toast-dismiss"
+            aria-label="Dismiss"
+            onClick={() => setSignInToast(null)}
+          >
+            <CloseIcon size={14} />
+          </button>
+        </div>
       )}
 
       {showStandings && (
@@ -150,7 +191,13 @@ export default function App() {
         {me ? null : waitingForPlayer ? (
           <p className="muted">Signing you in…</p>
         ) : (
-          <SignIn clients={clients} players={players} joinOpen={joinOpen} signedInElsewhere={!!user && !me} />
+          <SignIn
+            clients={clients}
+            players={players}
+            joinOpen={joinOpen}
+            signedInElsewhere={!!user && !me}
+            onQuickSignIn={setSignInToast}
+          />
         )}
 
         {games.length === 0 ? (

@@ -105,7 +105,12 @@ export function Standings({
         >
           <span className="tg-standings-bar-title">
             Standings
-            {projected && <span className="tg-live-dot" role="img" aria-label="Live" title="Live" />}
+            {projected && (
+              <span className="tg-live-badge tg-live-badge-compact" role="img" aria-label="Live" title="Live">
+                <span className="tg-live-pill-dot" aria-hidden="true" />
+                Live
+              </span>
+            )}
           </span>
           <span className="tg-standings-bar-summary">
             <span>

@@ -173,22 +173,19 @@ Plus that game's winner once it's over: the most points in that game, with ties 
 tiebreaker). Each player's points for the game are shown with their picks (see "Page layout").
 
 ### Page layout
-Kept light on text with distinct, non-overlapping icons: a **clock** for open games, a pulsing **Live** badge for active games, a **✓ check** for banked points and finished games, and a **key** icon for PIN-protected accounts. Color semantics are consistent everywhere: **green** means banked/final (cannot change), **blue** means live/in the lead (could still change).
-- **Menu:** top right next to the heading. Signed in, a round icon with your initial opens a menu with "Full
-  screen scoreboard", your name, "Add a PIN" / "Change PIN" and "Switch player". Signed out, a person icon opens
-  a menu with just "Full screen scoreboard", and the sign-in card is on the page (with a key icon beside names
-  that have a PIN).
+Kept light on text with distinct, non-overlapping icons: a **clock** for open games, a crisp static crimson **Live** badge for active games, a **✓ check** for banked points and finished games, and a **key** icon for PIN-protected accounts. Color semantics are consistent everywhere: **green** means banked/final (cannot change), **blue** means live/in the lead (could still change).
+- **Masthead controls & menu:** top right of the stadium banner, with direct **Rules** (`?`, opens the "How it works" dialog covering scoring, Live vs. Banked points, kickoff lock/reveal, and tiebreakers) and **TV** (opens the full-screen scoreboard) buttons beside the account button. Signed in, the account button shows your initial (plus your name on wider screens) and opens a menu with your name first, "Add a PIN" / "Change PIN" (with an explicit Cancel button), "Switch player", a visual divider, and quick links to "Full screen scoreboard" and "How it works". Signed out, a person icon opens a menu with "Full screen scoreboard" and "How it works", and the sign-in card is on the page (with a key icon beside names that have a PIN; tapping a PIN-less name shows a brief bottom toast — "Signed in as … — Switch" — so accidental taps are reversible in one tap).
 - **Game tabs**, one per game in kickoff order, each with both teams' logos (from ESPN), the matchup, and a
-  phase badge: **clock + Open** while the game is open for picks, a pulsing **Live** badge while it's being
+  phase badge: **clock + Open** while the game is open for picks, a static crimson **Live** badge while it's being
   played, and **✓ Final** once it's over. Signed in, each tab also has a **progress bar** of how many of the 15
   questions you've answered for that game (full: green).
 - **Which game opens:** the game being played, else the next game to kick off, else the last game. The page
   follows along as games kick off until you choose a tab yourself.
 - **Game header:** logos and team names ("Bengals @ Commanders"); once the game is under way the score sits
-  between the names ("Bengals 10 – 7 Commanders") with the clock ("Q2 1:55", "Final") below. Then a phase pill
-  with a clock and countdown until kickoff ("Live" with pulsing dot while it's on, "Final" with check once it's
-  over), the kickoff time and TV. The pick form starts with the points each question is worth, spelled out
-  ("1 point", "3 points (closest pick wins)").
+  between the names ("Bengals 10 – 7 Commanders") with a single clock pill below (static crimson with dot while
+  live, e.g. "Q2 1:55", or check + "Final" once over). Before live stats arrive, a phase pill shows a clock and
+  countdown until kickoff (or "Live" right after kickoff), followed by the kickoff time and TV. The pick form
+  starts with the points each question is worth, spelled out ("1 point", "3 points (closest pick wins)").
 - **Live & final game sub-tabs:** once a game is scored, a two-tab switcher keeps the page compact:
   - **My Picks** (or **Picks** when signed out): a player selector (you first whenever you're signed in, even with
     no picks for the game: "No picks for this game", then everyone who made picks; starts on you, or on the
@@ -203,9 +200,9 @@ Kept light on text with distinct, non-overlapping icons: a **clock** for open ga
     live. Tapping a row expands the full category details and **every family member's pick** (point-earners first,
     with their points badge).
 - **Overall standings:** explicitly labeled **Live** (blue) and **✓ Banked** (green) columns with a `Live | Banked`
-  sort toggle (defaulting to Live) and a pulsing green dot while games are live; collapses to a single **Pts**
-  column once every game is final. A chevron on each row opens that player's aligned per-game points (`—` and
-  kickoff time for unstarted games).
+  sort toggle (defaulting to Live) and a static crimson **Live** badge while games are live; collapses to a single
+  **Pts** column once every game is final. A chevron on each row opens that player's aligned per-game points (`—`
+  and kickoff time for unstarted games).
 
 ### Live scoring
 - During a game, each category is scored as if the game ended right now (**projected**, counted in live points).

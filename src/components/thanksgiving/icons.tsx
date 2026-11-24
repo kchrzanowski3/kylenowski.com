@@ -73,9 +73,63 @@ export function KeyIcon({ size = 13, className, label }: { size?: number; classN
   );
 }
 
+/** Screen / TV icon for the full-screen scoreboard button. */
+export function TvIcon({ size = 16, className, label }: { size?: number; className?: string; label?: string }) {
+  return (
+    <svg
+      className={className ? `tg-icon ${className}` : 'tg-icon'}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      role={label ? 'img' : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    >
+      <rect x="3" y="4.5" width="18" height="12.5" rx="2.2" fill="none" stroke="currentColor" strokeWidth="2.2" />
+      <path d="M8.5 20.5h7M12 17v3.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Question-mark circle icon for the "How it works" rules modal button. */
+export function HelpIcon({ size = 16, className, label }: { size?: number; className?: string; label?: string }) {
+  return (
+    <svg
+      className={className ? `tg-icon ${className}` : 'tg-icon'}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      role={label ? 'img' : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    >
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2.2" />
+      <path d="M9.4 9.5a2.7 2.7 0 0 1 5.2.9c0 1.7-2.6 2-2.6 3.6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+      <circle cx="12" cy="17.2" r="1.2" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** X icon for dismissing modals and toasts. */
+export function CloseIcon({ size = 16, className, label }: { size?: number; className?: string; label?: string }) {
+  return (
+    <svg
+      className={className ? `tg-icon ${className}` : 'tg-icon'}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      role={label ? 'img' : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    >
+      <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 const DEFAULT_PHASE_TEXT: Record<GamePhase, string> = { open: 'Open', live: 'Live', final: 'Final' };
 
-/** Game phase indicator for tabs and headers: clock for open, pulsing LIVE badge for live, check for final. */
+/** Game phase indicator for tabs and headers: clock for open, crisp static LIVE badge for live, check for final. */
 export function PhaseBadge({
   phase,
   text,
@@ -96,7 +150,7 @@ export function PhaseBadge({
       data-testid={testId}
     >
       {phase === 'open' && <ClockIcon size={iconSize} />}
-      {phase === 'live' && <span className="tg-live-dot" aria-hidden="true" />}
+      {phase === 'live' && <span className="tg-live-pill-dot" aria-hidden="true" />}
       {phase === 'final' && <CheckIcon size={iconSize} />}
       <span>{label}</span>
     </span>

@@ -27,12 +27,12 @@ export type AnswerKey = keyof Answers;
 
 /** Number questions that are scored "closest wins", with the range a guess must fall in. */
 export const NUMBER_QUESTIONS = [
-  { key: 'fgs', label: 'Total field goals made', hint: 'both teams', max: 20, avg: 'fgs', unit: 'field goals made' },
-  { key: 'punts', label: 'Total punts', hint: 'both teams', max: 30, avg: 'punts', unit: 'punts' },
-  { key: 'tds', label: 'Total touchdowns', hint: 'both teams, any kind', max: 20, avg: 'tds', unit: 'TDs' },
-  { key: 'turnovers', label: 'Combined turnovers', hint: 'interceptions + lost fumbles', max: 20, avg: 'turnovers', unit: 'turnovers' },
-  { key: 'longestTd', label: 'Yards on the longest TD', hint: 'any kind of TD; 0 if no TD', max: 109, avg: 'longestTd', unit: 'yards' },
-  { key: 'sacks', label: 'Combined sacks', hint: 'both teams', max: 30, avg: 'sacks', unit: 'sacks' },
+  { key: 'fgs', label: 'Total field goals made', hint: 'Both teams combined.', max: 20, avg: 'fgs', unit: 'field goals made' },
+  { key: 'punts', label: 'Total punts', hint: 'Both teams combined.', max: 30, avg: 'punts', unit: 'punts' },
+  { key: 'tds', label: 'Total touchdowns', hint: 'Both teams, any kind of TD.', max: 20, avg: 'tds', unit: 'TDs' },
+  { key: 'turnovers', label: 'Combined turnovers', hint: 'Interceptions and lost fumbles (both teams).', max: 20, avg: 'turnovers', unit: 'turnovers' },
+  { key: 'longestTd', label: 'Yards on the longest TD', hint: 'Any kind of TD; enter 0 if no TD.', max: 109, avg: 'longestTd', unit: 'yards' },
+  { key: 'sacks', label: 'Combined sacks', hint: 'Both teams combined.', max: 30, avg: 'sacks', unit: 'sacks' },
 ] as const;
 
 export const FINAL_SCORE_MAX = 99;

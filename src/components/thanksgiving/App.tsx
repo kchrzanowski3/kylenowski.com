@@ -110,67 +110,109 @@ export default function App() {
   const lastKickoff = games.reduce((m, g) => Math.max(m, g.kickoff), 0);
   const joinOpen = games.length === 0 || now < lastKickoff;
   const active = games.find((g) => g.id === activeId) ?? null;
+  const showStandings = !!standings && standings.status !== 'pre';
+
+  // Next open game that still needs picks, for the celebratory 15/15 handoff button.
+  const nextOpenGame =
+    games.find((g) => g.id !== activeId && phaseOf.get(g.id) === 'open' && (answered[g.id] ?? 0) < QUESTION_COUNT) ??
+    null;
+
+  const selectGame = (id: string) => {
+    setTab(id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
-    <div className="tg">
+    <div className={showStandings ? 'tg tg-arena tg-arena-split' : 'tg tg-arena'}>
       <AccountMenu clients={clients} me={me} onFullScreen={enterTv} />
       {tv && (
         <TvView games={games} phases={phases} results={results} standings={standings} locked={locked} players={players} onExit={exitTv} />
       )}
-      {me ? null : waitingForPlayer ? (
-        <p className="muted">Signing you in…</p>
-      ) : (
-        <SignIn clients={clients} players={players} joinOpen={joinOpen} signedInElsewhere={!!user && !me} />
+
+      {showStandings && (
+        <aside className="tg-rail" aria-label="Standings">
+          <Standings standings={standings} games={games} players={players} me={me} locked={locked} />
+        </aside>
       )}
 
-      {standings && standings.status !== 'pre' && <Standings standings={standings} games={games} players={players} me={me} locked={locked} />}
+      <div className="tg-main">
+        {me ? null : waitingForPlayer ? (
+          <p className="muted">Signing you in…</p>
+        ) : (
+          <SignIn clients={clients} players={players} joinOpen={joinOpen} signedInElsewhere={!!user && !me} />
+        )}
 
-      {games.length === 0 ? (
-        <p className="muted">The games will show up here shortly.</p>
-      ) : (
-        <>
-          <nav className="tg-tabs" aria-label="Games">
-            {games.map((g) => {
-              const phase = phaseOf.get(g.id)!;
-              const n = answered[g.id] ?? 0;
-              return (
-                <button
-                  key={g.id}
-                  type="button"
-                  className={`tg-tab tg-tab-${phase}`}
-                  aria-current={g.id === activeId ? 'page' : undefined}
-                  onClick={() => setTab(g.id)}
-                >
-                  <span className="tg-tab-logos" aria-hidden="true">
-                    <TeamLogo team={g.away} size={26} />
-                    <TeamLogo team={g.home} size={26} />
-                  </span>
-                  <span className="tg-tab-teams">
-                    {g.away.abbr} @ {g.home.abbr}
-                  </span>
-                  <LockIcon phase={phase} size={14} />
-                  {me && (
-                    <span
-                      className="tg-progress"
-                      role="progressbar"
-                      aria-label="Your picks"
-                      aria-valuemin={0}
-                      aria-valuemax={QUESTION_COUNT}
-                      aria-valuenow={n}
-                      data-testid={`tg-progress-${g.id}`}
-                    >
-                      <span className={n >= QUESTION_COUNT ? 'tg-progress-fill tg-progress-full' : 'tg-progress-fill'} style={{ width: `${(100 * n) / QUESTION_COUNT}%` }} />
+        {games.length === 0 ? (
+          <p className="muted">The games will show up here shortly.</p>
+        ) : (
+          <>
+            <nav className="tg-tabs" aria-label="Games">
+              {games.map((g) => {
+                const phase = phaseOf.get(g.id)!;
+                const n = answered[g.id] ?? 0;
+                const tabScore = phase !== 'open' && results[g.id]?.stats && results[g.id].stats.state !== 'pre' ? results[g.id].stats : null;
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    className={`tg-tab tg-tab-${phase}`}
+                    aria-current={g.id === activeId ? 'page' : undefined}
+                    onClick={() => setTab(g.id)}
+                  >
+                    <span className="tg-tab-logos" aria-hidden="true">
+                      <TeamLogo team={g.away} size={28} />
+                      <TeamLogo team={g.home} size={28} />
                     </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-          {active && (
-            <GamePanel key={active.id} clients={clients} game={active} me={me} players={players} now={now} result={results[active.id] ?? null} phase={phaseOf.get(active.id)!} />
-          )}
-        </>
-      )}
+                    <span className="tg-tab-teams">
+                      {g.away.abbr} @ {g.home.abbr}
+                    </span>
+                    <span className="tg-tab-meta">
+                      <LockIcon phase={phase} size={13} />
+                      {phase === 'live' ? (
+                        <span className="tg-tab-live-tag">
+                          {tabScore ? `${tabScore.away}–${tabScore.home}` : 'LIVE'}
+                        </span>
+                      ) : phase === 'final' && tabScore ? (
+                        <span className="tg-tab-final-tag">{tabScore.away}–{tabScore.home}</span>
+                      ) : me ? (
+                        <span className="tg-tab-count">{n}/{QUESTION_COUNT}</span>
+                      ) : null}
+                    </span>
+                    {me && (
+                      <span
+                        className="tg-progress"
+                        role="progressbar"
+                        aria-label="Your picks"
+                        aria-valuemin={0}
+                        aria-valuemax={QUESTION_COUNT}
+                        aria-valuenow={n}
+                        data-testid={`tg-progress-${g.id}`}
+                      >
+                        <span className={n >= QUESTION_COUNT ? 'tg-progress-fill tg-progress-full' : 'tg-progress-fill'} style={{ width: `${(100 * n) / QUESTION_COUNT}%` }} />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
+            {active && (
+              <GamePanel
+                key={active.id}
+                clients={clients}
+                game={active}
+                me={me}
+                players={players}
+                now={now}
+                result={results[active.id] ?? null}
+                phase={phaseOf.get(active.id)!}
+                nextGame={nextOpenGame}
+                nextAnswered={nextOpenGame ? (answered[nextOpenGame.id] ?? 0) : 0}
+                onSelectGame={selectGame}
+              />
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

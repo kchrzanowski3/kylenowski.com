@@ -6,11 +6,59 @@ import App from '../components/thanksgiving/App';
 import '../styles/thanksgiving.css';
 ---
 
-<Base title="Thanksgiving Picks" description="Family pick'em for the Thanksgiving NFL games." noindex>
-  <div class="tg-titlebar">
-    <h1>Thanksgiving Picks 🦃</h1>
-    <!-- The signed-in player's menu (components/thanksgiving/AccountMenu.tsx) goes here. -->
-    <div id="tg-account-slot"></div>
-  </div>
+<Base
+  title="Thanksgiving Picks"
+  description="Family pick'em for the Thanksgiving NFL games."
+  noindex
+  hideNav
+  bodyClass="tg-body"
+  themeColor="#165b33"
+>
+  <header class="tg-masthead">
+    <div class="tg-masthead-inner">
+      <div class="tg-masthead-brand">
+        <svg class="tg-crest" width="56" height="56" viewBox="0 0 64 64" aria-hidden="true">
+          <!-- Vintage stadium pennant crest with pigskin football & autumn maple accents -->
+          <path
+            d="M32 4 L56 12 V31 C56 46.5 45.2 55.6 32 60 C18.8 55.6 8 46.5 8 31 V12 Z"
+            fill="#114627"
+            stroke="#f0c368"
+            stroke-width="2.5"
+          />
+          <path
+            d="M32 8.5 L51.5 15 V30.5 C51.5 43.2 42.6 50.8 32 54.8 C21.4 50.8 12.5 43.2 12.5 30.5 V15 Z"
+            fill="none"
+            stroke="#f0c368"
+            stroke-opacity="0.45"
+            stroke-width="1.2"
+            stroke-dasharray="3 2.5"
+          />
+          <!-- Autumn pennant stripes -->
+          <path d="M13 22 H51" stroke="#c93848" stroke-width="3.5" stroke-opacity="0.9" />
+          <path d="M13 26.5 H51" stroke="#e4a83b" stroke-width="2" />
+          <!-- Vintage laced pigskin football -->
+          <g transform="rotate(-24 32 37)">
+            <ellipse cx="32" cy="37" rx="13.5" ry="8.5" fill="#9a4b21" stroke="#fff8eb" stroke-width="1.8" />
+            <path d="M22.5 31.2 C24.5 34.5 24.5 39.5 22.5 42.8" fill="none" stroke="#fff8eb" stroke-width="1.7" stroke-linecap="round" />
+            <path d="M41.5 31.2 C39.5 34.5 39.5 39.5 41.5 42.8" fill="none" stroke="#fff8eb" stroke-width="1.7" stroke-linecap="round" />
+            <path d="M26.5 37 H37.5" stroke="#fff8eb" stroke-width="1.7" stroke-linecap="round" />
+            <path d="M29 34.5 V39.5 M32 34.2 V39.8 M35 34.5 V39.5" stroke="#fff8eb" stroke-width="1.5" stroke-linecap="round" />
+          </g>
+          <!-- Top golden star -->
+          <path d="M32 11.2 L33.4 14.2 L36.7 14.6 L34.2 16.8 L34.9 20 L32 18.4 L29.1 20 L29.8 16.8 L27.3 14.6 L30.6 14.2 Z" fill="#f2c464" />
+        </svg>
+        <div class="tg-masthead-copy">
+          <h1>Thanksgiving Picks</h1>
+          <p class="tg-masthead-sub">
+            <span class="tg-program-stamp">Game Day Program</span>
+            <span class="tg-masthead-sep" aria-hidden="true">·</span>
+            <span>Thu, Nov 26 · Family Pick’em</span>
+          </p>
+        </div>
+      </div>
+      <!-- The signed-in player's menu (components/thanksgiving/AccountMenu.tsx) goes here. -->
+      <div id="tg-account-slot" class="tg-masthead-slot"></div>
+    </div>
+  </header>
   <App client:only="react" />
 </Base>

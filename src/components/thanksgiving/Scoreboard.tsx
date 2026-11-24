@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import type { CategoryResult, GameScore } from '../../lib/thanksgiving/scoring';
 import type { GameStats } from '../../lib/thanksgiving/stats';
 import { CATEGORY_SHORT, whoCount, worthBadge, type Game, type Player } from '../../lib/thanksgiving/view';
+import { ChampionBanner } from './Festive';
 
 export interface GameResult {
   stats: GameStats;
@@ -44,7 +45,10 @@ export function Scoreboard({ game, result, players, me, children }: Props) {
   return (
     <div className="tg-scoreboard" data-testid="tg-scoreboard">
       {score.winners.length > 0 && (
-        <p className="tg-champion">🏆 Game winner{score.winners.length > 1 ? 's' : ''}: {who(score.winners)}</p>
+        <ChampionBanner
+          title={score.winners.length > 1 ? 'Game winners' : 'Game winner'}
+          names={who(score.winners)}
+        />
       )}
       {children}
       <section aria-labelledby={`tg-cats-${game.id}`}>

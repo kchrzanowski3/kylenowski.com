@@ -6,9 +6,22 @@ interface Props {
   description?: string;
   /** Ask search engines not to index the page. */
   noindex?: boolean;
+  /** Omit the default blog top navigation bar (used by standalone app pages). */
+  hideNav?: boolean;
+  /** Optional class applied to <body> for page-specific visual themes. */
+  bodyClass?: string;
+  /** Optional browser chrome theme-color override. */
+  themeColor?: string;
 }
 
-const { title, description = 'Kyle’s corner of the internet.', noindex = false } = Astro.props;
+const {
+  title,
+  description = 'Kyle’s corner of the internet.',
+  noindex = false,
+  hideNav = false,
+  bodyClass,
+  themeColor = '#1f2937',
+} = Astro.props;
 const fullTitle = title ? `${title} · kylenowski.com` : 'kylenowski.com';
 ---
 
@@ -17,17 +30,19 @@ const fullTitle = title ? `${title} · kylenowski.com` : 'kylenowski.com';
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#1f2937" />
+    <meta name="theme-color" content={themeColor} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
     {noindex && <meta name="robots" content="noindex, nofollow" />}
     <title>{fullTitle}</title>
   </head>
-  <body>
+  <body class={bodyClass}>
     <div class="shell">
-      <nav class="site-nav">
-        <a class="brand" href="/">kylenowski</a>
-      </nav>
+      {!hideNav && (
+        <nav class="site-nav">
+          <a class="brand" href="/">kylenowski</a>
+        </nav>
+      )}
       <main>
         <slot />
       </main>

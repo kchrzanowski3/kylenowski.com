@@ -73,8 +73,13 @@ test('join, pick, sign in on another phone, lock at kickoff, reveal', async ({ b
   const csp = watchCsp(alice);
   await join(alice, 'Alice', '1234');
   await expect(alice.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
-  await expect(alice.locator('.tg-vegas')).toContainText('projects CHI 29 – DET 26.5');
-  await expect(alice.getByText('CHI 4.2 · DET 3.6 punts per game')).toBeVisible();
+  // The final-score question shows the Vegas projection; number questions show the NFL average per game
+  // (twice the per-team average), and the longest TD the per-team one.
+  await expect(alice.locator('.tg-vegas')).toContainText('Vegas projects CHI 29 – DET 26.5');
+  await expect(alice.getByText('NFL average 8 per game')).toBeVisible();
+  await expect(alice.getByText('NFL team average longest TD: 31.5 yards')).toBeVisible();
+  await expect(alice.getByText('3 points (closest pick wins)').first()).toBeVisible();
+  await expect(alice.getByText(/each team’s own|Can't be a tie/)).toHaveCount(0);
   await alice.getByLabel('CHI final score').fill('20');
   await alice.getByLabel('DET final score').fill('20');
   await expect(alice.getByTestId('tg-save-status')).toContainText("Saved, except the final score: it can’t be a tie");

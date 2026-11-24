@@ -85,7 +85,9 @@ test('admin signs in by emailed link, fixes a stat, and the leaderboard moves', 
 
   // The viewer's game-1 scoreboard shows it too.
   await viewer.getByRole('button', { name: /CHI @ DET/ }).click();
-  await expect(viewer.getByTestId('tg-livescore')).toContainText(/CHI 10\s*–\s*14 DET/);
+  // The game's header carries the score between the team names, with the clock below.
+  await expect(viewer.getByTestId('tg-livescore')).toContainText(/Bears\s*10\s*–\s*14\s*Lions/);
+  await expect(viewer.getByTestId('tg-clock')).toBeVisible();
   // "Who's getting points": Bob is right on punts, now final-or-live with a mark; tap for the details.
   const punts = viewer.getByTestId('tg-cat-punts');
   await expect(punts).toContainText('Bob');

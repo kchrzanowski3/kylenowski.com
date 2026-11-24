@@ -17,7 +17,7 @@ export function Standings({ standings, games, players, me }: Props) {
   if (!standings || standings.status === 'pre' || standings.rows.length === 0) {
     return (
       <section className="tg-card" aria-labelledby="tg-standings-title">
-        <h2 id="tg-standings-title">Standings</h2>
+        <h2 id="tg-standings-title">Overall standings</h2>
         <p className="muted">Standings start when the first game kicks off.</p>
       </section>
     );
@@ -29,7 +29,7 @@ export function Standings({ standings, games, players, me }: Props) {
   return (
     <section className="tg-standings" aria-labelledby="tg-standings-title" data-testid="tg-standings">
       <h2 id="tg-standings-title">
-        Standings{projected && <span className="tg-live-dot" role="img" aria-label="Live" title="Live" />}
+        Overall standings{projected && <span className="tg-live-dot" role="img" aria-label="Live" title="Live" />}
       </h2>
       {champions.length > 0 && (
         <p className="tg-champion" data-testid="tg-champion">

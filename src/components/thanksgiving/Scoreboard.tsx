@@ -1,8 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import type { CategoryResult, GameScore } from '../../lib/thanksgiving/scoring';
 import type { GameStats } from '../../lib/thanksgiving/stats';
-import { CATEGORY_SHORT, shortWorth, whoCount, type Game, type Player } from '../../lib/thanksgiving/view';
-import { TeamLogo } from './icons';
+import { CATEGORY_SHORT, whoCount, worthBadge, type Game, type Player } from '../../lib/thanksgiving/view';
 
 export interface GameResult {
   stats: GameStats;
@@ -27,7 +26,8 @@ interface Props {
   children?: ReactNode;
 }
 
-/** Per-game scoreboard (docs/thanksgiving-spec.md, "Standings → Per-game scoreboard" and "Page layout"). */
+/** Per-game scoreboard (docs/thanksgiving-spec.md, "Standings → Per-game scoreboard" and "Page layout"). The score
+ * itself is in the game's header (GamePanel). */
 export function Scoreboard({ game, result, players, me, children }: Props) {
   if (!result || result.score.status === 'pre') {
     return (
@@ -37,25 +37,18 @@ export function Scoreboard({ game, result, players, me, children }: Props) {
       </>
     );
   }
-  const { stats, score } = result;
+  const { score } = result;
   const names = new Map(players.map((p) => [p.id, p.name]));
   const who = (ids: string[]) => ids.map((id) => names.get(id)).filter(Boolean).join(', ') || '—';
-  const live = score.status === 'live';
 
   return (
     <div className="tg-scoreboard" data-testid="tg-scoreboard">
-      <p className="tg-livescore" data-testid="tg-livescore">
-        <span className="tg-livescore-team"><TeamLogo team={game.away} size={32} /> {game.away.abbr} <strong>{stats.away}</strong></span>
-        <span className="muted">–</span>
-        <span className="tg-livescore-team"><strong>{stats.home}</strong> {game.home.abbr} <TeamLogo team={game.home} size={32} /></span>
-        <span className={live ? 'tg-clock tg-clock-live' : 'tg-clock'}>{gameClock(stats)}</span>
-      </p>
       {score.winners.length > 0 && (
         <p className="tg-champion">🏆 Game winner{score.winners.length > 1 ? 's' : ''}: {who(score.winners)}</p>
       )}
       {children}
       <section aria-labelledby={`tg-cats-${game.id}`}>
-        <h3 id={`tg-cats-${game.id}`} className="tg-cats-title">Who's getting points</h3>
+        <h3 id={`tg-cats-${game.id}`} className="tg-cats-title">Who's getting points this game</h3>
         <ul className="tg-cats">
           {score.categories.map((c) => (
             <CategoryRow key={c.key} c={c} names={names} meId={me?.id ?? null} />
@@ -77,7 +70,7 @@ function CategoryRow({ c, names, meId }: { c: CategoryResult; names: Map<string,
       <button type="button" className="tg-cat-row" aria-expanded={open} onClick={() => setOpen(!open)}>
         <span className="tg-cat-name">
           <span className="tg-cat-label">
-            {CATEGORY_SHORT[c.key]} <span className="tg-worth" aria-label={`worth ${c.worth}`}>{shortWorth(c.worth)}</span>
+            {CATEGORY_SHORT[c.key]} <span className="tg-worth" aria-label={`worth ${c.worth}`}>{worthBadge(c.worth)}</span>
           </span>
           <span className="tg-cat-value">{c.answer}</span>
         </span>

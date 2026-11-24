@@ -111,14 +111,17 @@ The most anyone can score in one game is **37**, if they pick a safety correctly
 
 ## Help shown while picking
 
-- **Vegas projected score** for each game, worked out from the betting line:
+- **Vegas projected score** for each game, shown with the final-score question (for example "Vegas projects
+  DAL 25.5 – PHI 22 (DAL -3.5, O/U 47.5)"), worked out from the betting line:
   favorite = (over/under + spread) ÷ 2, underdog = (over/under − spread) ÷ 2.
   For example, DAL −3.5 with O/U 47.5 projects DAL 25.5 – PHI 22. It uses the line from the data feed,
   refreshes on the pre-game schedule (see "Pre-game refresh"), and freezes at kickoff.
-- **Reference averages** next to every number question (field goals, punts, TDs, turnovers, longest TD, sacks,
-  and points for the final score): **each team's own per-game average this season**, plus the NFL average per
-  team per game. The questions ask for both teams combined, but these are each team's own numbers, so they're
-  labeled that way, for example "DAL: 4.1 punts per game (DAL's own)". For each team:
+- **Reference averages** under the number questions: the **NFL average per game** this season. The questions
+  ask for both teams combined, so for field goals, punts, TDs, turnovers and sacks it's twice the NFL average
+  per team (for example "NFL average 8.1 per game"). A game's longest TD is the longer of the two teams', not
+  their sum, so that one shows the NFL average per team ("NFL team average longest TD: 31.5 yards"). The final
+  score shows the Vegas projection instead of an average. (Each team's own averages are still worked out, but
+  not shown: they don't differ much from the NFL's.) Per team, the averages count:
   - points: points it scored
   - field goals: field goals it made
   - punts: its punts
@@ -175,17 +178,20 @@ Kept light on text: the page shows state with icons, not instructions.
   you've answered for that game (full: green).
 - **Which game opens:** the game being played, else the next game to kick off, else the last game. The page
   follows along as games kick off until you choose a tab yourself.
-- **Game header:** logos and team names, and a chip with the lock and the time left until kickoff ("Locked"
-  while it's on, "Final" once it's over), then the kickoff time and TV.
+- **Game header:** logos and team names ("Bengals @ Commanders"); once the game is under way the score sits
+  between the names ("Bengals 10 – 7 Commanders") with the clock ("Q2 1:55", "Final") below. Then a chip with
+  the lock and the time left until kickoff ("Locked" while it's on, "Final" once it's over), the kickoff time
+  and TV. The pick form starts with the points each question is worth, spelled out ("1 point", "3 points
+  (closest pick wins)").
 - **Picks, from kickoff:** a list of players: you first whenever you're signed in (even with no picks for the
   game: "No picks for this game"), then everyone who made picks. It starts on you; signed out, on the game's
   leader. It shows the chosen player's 15 answers with the points each is earning and their total for the game.
-- **Who's getting points:** the per-game scoreboard as a compact list under the picks, one row per category:
-  a short name ("Punts", "Closest score"), its worth as a number badge ("3", "1", "1/5"), the value so far,
-  who's right as a count ("Ann", "You", "You + 2", "6 players") and a mark: a green check once the category is
-  final, a hollow dot while it could still change. Rows where you're right are tinted green. Tapping a row
+- **Who's getting points this game:** the per-game scoreboard as a compact list under the picks, one row per
+  category: a short name ("Punts", "Closest score"), its worth as a badge ("3 pts", "1 pt", "1/5 pts"), the
+  value so far, who's right as a count ("Ann", "You", "You + 2", "6 players") and a mark: a green check once the
+  category is final, a grey hollow circle while it could still change. Rows where you're right are tinted green. Tapping a row
   shows the full category name, worth, value, the names of who's right and the status.
-- **Standings:** a pulsing dot while points are projected (live); projected points also look different from
+- **Overall standings:** a pulsing green dot while points are projected (live); projected points also look different from
   final ones. A chevron on each row opens that player's points per game.
 
 ### Live scoring

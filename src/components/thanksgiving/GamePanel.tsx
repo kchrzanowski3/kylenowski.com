@@ -3,13 +3,12 @@ import { useEffect, useState } from 'react';
 import { getRevealDb, type Clients } from '../../lib/thanksgiving/client';
 import { etDateTime } from '../../lib/thanksgiving/config';
 import { isLocked } from '../../lib/thanksgiving/kickoff';
-import { formatPoints } from '../../lib/thanksgiving/projection';
 import type { Answers } from '../../lib/thanksgiving/questions';
 import { countdown, type Game, type GamePhase, type Pick, type Player } from '../../lib/thanksgiving/view';
 import { LockIcon, TeamLogo } from './icons';
 import { PickForm } from './PickForm';
 import { PlayerPicks } from './PlayerPicks';
-import { Scoreboard, type GameResult } from './Scoreboard';
+import { Scoreboard, gameClock, type GameResult } from './Scoreboard';
 
 interface Props {
   clients: Clients;
@@ -79,16 +78,26 @@ export function GamePanel({ clients, game, me, players, now, result, phase }: Pr
     };
   }, [game.id, locked, revealRetry]);
 
-  const { line, projection } = game;
+  const scored = locked && !!result && result.score.status !== 'pre';
 
   return (
     <section className="tg-game" aria-labelledby={`tg-game-${game.id}`}>
       <header className="tg-game-head">
-        <h2 id={`tg-game-${game.id}`} className="tg-matchup">
-          <span className="tg-matchup-team"><TeamLogo team={game.away} size={40} /> {game.away.shortName}</span>
-          <span className="muted">@</span>
-          <span className="tg-matchup-team"><TeamLogo team={game.home} size={40} /> {game.home.shortName}</span>
+        {/* Once the game is under way the team names carry the score, with the clock below. */}
+        <h2 id={`tg-game-${game.id}`} className="tg-matchup" data-testid={scored ? 'tg-livescore' : undefined}>
+          <span className="tg-matchup-team"><TeamLogo team={game.away} size={36} /> {game.away.shortName}</span>
+          {scored ? (
+            <span className="tg-matchup-score">
+              {result!.stats.away} <span className="muted">–</span> {result!.stats.home}
+            </span>
+          ) : (
+            <span className="muted">@</span>
+          )}
+          <span className="tg-matchup-team">{game.home.shortName} <TeamLogo team={game.home} size={36} /></span>
         </h2>
+        {scored && (
+          <p className={phase === 'live' ? 'tg-clock tg-clock-live' : 'tg-clock'} data-testid="tg-clock">{gameClock(result!.stats)}</p>
+        )}
         <p className="tg-game-meta">
           <span className={`tg-phase tg-phase-${phase}`} data-testid="tg-lock-status" data-phase={phase}>
             <LockIcon phase={phase} size={14} />
@@ -99,12 +108,6 @@ export function GamePanel({ clients, game, me, players, now, result, phase }: Pr
             {game.tv ? ` · ${game.tv}` : ''}
           </span>
         </p>
-        {line && projection && (
-          <p className="tg-vegas">
-            <strong>Vegas:</strong> {line.details || 'Pick’em'}, O/U {formatPoints(line.overUnder)} → projects{' '}
-            {game.away.abbr} {formatPoints(projection.away)} – {game.home.abbr} {formatPoints(projection.home)}
-          </p>
-        )}
       </header>
 
       {!locked && me && mine?.playerId !== me.id && <p className="muted">Loading your picks…</p>}

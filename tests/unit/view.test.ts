@@ -5,6 +5,7 @@ import { preGameStats } from '../../src/lib/thanksgiving/stats';
 import {
   CATEGORY_SHORT,
   autoGameId,
+  averageHint,
   defaultPickerPlayer,
   gamePhase,
   pickerPlayers,
@@ -12,6 +13,7 @@ import {
   shortWorth,
   teamLogo,
   whoCount,
+  worthBadge,
 } from '../../src/lib/thanksgiving/view';
 
 const KICKOFF = Date.parse('2026-11-26T18:00:00Z');
@@ -83,10 +85,13 @@ describe("who's getting points", () => {
     for (const c of score.categories) expect(CATEGORY_SHORT[c.key], c.key).toMatch(/\S/);
   });
 
-  it('worth is numbers only', () => {
+  it('worth is numbers only, with pt/pts', () => {
     expect(shortWorth('3')).toBe('3');
     expect(shortWorth('1 each')).toBe('1');
     expect(shortWorth('1 (5 for safety)')).toBe('1/5');
+    expect(worthBadge('3')).toBe('3 pts');
+    expect(worthBadge('1 each')).toBe('1 pt');
+    expect(worthBadge('1 (5 for safety)')).toBe('1/5 pts');
   });
 
   it("who's right is a count, with your name as You", () => {
@@ -97,5 +102,20 @@ describe("who's getting points", () => {
     expect(whoCount(['a', 'me', 'b'], names, 'me')).toBe('You + 2');
     expect(whoCount(['a', 'b', 'c'], names, 'me')).toBe('3 players');
     expect(whoCount(['a', 'gone'], names, null)).toBe('Ann'); // removed players don't count
+  });
+});
+
+describe('help shown while picking', () => {
+  const nfl = { games: 300, points: 23.1, fgs: 1.9, punts: 4.05, tds: 2.6, turnovers: 1.2, sacks: 2.4, longestTd: 31.5 };
+  it('number questions show the NFL average per game: twice the per-team average', () => {
+    expect(averageHint('punts', nfl)).toBe('NFL average 8.1 per game');
+    expect(averageHint('fgs', nfl)).toBe('NFL average 3.8 per game');
+    expect(averageHint('sacks', nfl)).toBe('NFL average 4.8 per game');
+  });
+  it("the longest TD stays per team (a game's longest is the longer of the two, not their sum)", () => {
+    expect(averageHint('longestTd', nfl)).toBe('NFL team average longest TD: 31.5 yards');
+  });
+  it('no averages, no hint', () => {
+    expect(averageHint('punts', null)).toBeNull();
   });
 });

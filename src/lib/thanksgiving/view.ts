@@ -199,3 +199,22 @@ export function whoCount(ids: readonly string[], names: ReadonlyMap<string, stri
   if (known.length === 1) return mine ? 'You' : names.get(known[0])!;
   return mine ? `You + ${known.length - 1}` : `${known.length} players`;
 }
+
+// --- Help shown while picking (docs/thanksgiving-spec.md, "Help shown while picking") ---------
+
+/**
+ * The reference hint under a number question, from the NFL's per-team average. The questions ask
+ * for both teams combined, so it's shown per game (twice the per-team average), except the longest
+ * TD: a game's longest is the longer of the two teams', not their sum, so that one stays per team.
+ */
+export function averageHint(field: 'fgs' | 'punts' | 'tds' | 'turnovers' | 'sacks' | 'longestTd', nfl: TeamAverages | null): string | null {
+  if (!nfl || typeof nfl[field] !== 'number') return null;
+  if (field === 'longestTd') return `NFL team average longest TD: ${nfl.longestTd} yards`;
+  return `NFL average ${Math.round(nfl[field] * 20) / 10} per game`;
+}
+
+/** "3 pts", "1 pt", "1/5 pts": a category's worth for its badge. */
+export function worthBadge(worth: string): string {
+  const n = shortWorth(worth);
+  return `${n} ${n === '1' ? 'pt' : 'pts'}`;
+}

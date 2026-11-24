@@ -78,11 +78,11 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5 # the Firestore emulator runs on Java
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v5 # the Firestore emulator runs on Java
         with:
           distribution: temurin
           java-version: "21"
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/firebase/emulators
           key: firebase-emulators-${{ hashFiles('package-lock.json') }}
@@ -101,11 +101,11 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5 # the Firestore emulator runs on Java
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v5 # the Firestore emulator runs on Java
         with:
           distribution: temurin
           java-version: "21"
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/firebase/emulators
           key: firebase-emulators-${{ hashFiles('package-lock.json') }}
@@ -161,13 +161,13 @@ jobs:
 
       - name: Set up Python
         id: python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
 
       - name: Cache Semgrep and zizmor
         id: security-venv
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/security-venv
           key: security-venv-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ env.SEMGREP_VERSION }}-${{ env.ZIZMOR_VERSION }}
@@ -309,7 +309,7 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
 
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/terraform-plugin-cache
           key: terraform-providers-${{ runner.os }}-${{ hashFiles('infra/.terraform.lock.hcl') }}
@@ -373,7 +373,7 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
 
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/terraform-plugin-cache
           key: terraform-providers-${{ runner.os }}-${{ hashFiles('infra/.terraform.lock.hcl') }}
@@ -447,7 +447,7 @@ jobs:
           node-version-file: .nvmrc
       - name: Cache firebase-tools
         id: firebase-cli
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/firebase-cli
           key: firebase-cli-${{ runner.os }}-${{ env.FIREBASE_TOOLS }}
@@ -510,7 +510,7 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Cache @playwright/test
         id: pw-cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/playwright-smoke
           key: playwright-smoke-${{ runner.os }}-${{ steps.pw.outputs.version }}
@@ -558,7 +558,7 @@ jobs:
           node-version-file: .nvmrc
       - name: Cache firebase-tools
         id: firebase-cli
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/firebase-cli
           key: firebase-cli-${{ runner.os }}-${{ env.FIREBASE_TOOLS }}
@@ -600,7 +600,7 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Cache @playwright/test
         id: pw-cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/playwright-smoke
           key: playwright-smoke-${{ runner.os }}-${{ steps.pw.outputs.version }}

@@ -88,26 +88,50 @@ test('admin signs in by emailed link, fixes a stat, and the leaderboard moves', 
   // The game's header carries the score between the team names, with the clock below.
   await expect(viewer.getByTestId('tg-livescore')).toContainText(/Bears\s*10\s*–\s*14\s*Lions/);
   await expect(viewer.getByTestId('tg-clock')).toBeVisible();
-  // "Who's getting points": Bob is right on punts, now final-or-live with a mark; tap for the details.
+
+  // Default live-game sub-tab ("Picks"): starts on the game's leader (Bob) with inline actual stats
+  // so players immediately see why each pick is winning or losing.
+  await expect(viewer.getByTestId('tg-subtab-picks')).toHaveAttribute('aria-selected', 'true');
+  await expect(viewer.getByTestId('tg-reveal-player').locator('option:checked')).toHaveText('Bob');
+  await expect(viewer.getByTestId('tg-pick-firstTeam')).toHaveClass(/tg-pick-lost/);
+  await expect(viewer.getByTestId('tg-pick-punts')).toHaveClass(/tg-pick-lead/); // live lead, not banked yet
+  await expect(viewer.getByTestId('tg-pick-actual-punts')).toHaveText('So far: 7');
+  await expect(viewer.getByTestId('tg-pick-sacks')).not.toHaveClass(/tg-pick-lost/); // still live
+
+  // Switch to "By Category": Bob is right on punts; expanding shows every family member's pick.
+  await viewer.getByTestId('tg-subtab-categories').click();
+  await expect(viewer.getByTestId('tg-subtab-categories')).toHaveAttribute('aria-selected', 'true');
   const punts = viewer.getByTestId('tg-cat-punts');
   await expect(punts).toContainText('Bob');
   await expect(punts).toContainText('7');
   await punts.getByRole('button').click();
   await expect(punts).toContainText('Total punts');
+  const puntsPicks = viewer.getByTestId('tg-cat-picks-punts');
+  await expect(puntsPicks).toContainText('Bob');
+  await expect(puntsPicks).toContainText('+3');
+  await expect(puntsPicks).toContainText('Alice');
+  await expect(puntsPicks).toContainText('4');
 
-  // The player picker (signed out: the game's leader, Bob) greys out settled questions he didn't get:
-  // the first score is decided and he didn't pick it; his punts are earning points.
-  await expect(viewer.getByTestId('tg-reveal-player').locator('option:checked')).toHaveText('Bob');
-  await expect(viewer.getByTestId('tg-pick-firstTeam')).toHaveClass(/tg-pick-lost/);
-  await expect(viewer.getByTestId('tg-pick-punts')).toHaveClass(/tg-pick-lead/); // in the lead, not locked yet
-  await expect(viewer.getByTestId('tg-pick-sacks')).not.toHaveClass(/tg-pick-lost/); // still live
-
-  // Standings: Bob leads on live points; nothing is locked in yet (punts can still change).
-  await expect(viewer.getByTestId('tg-locked-Bob')).toHaveText('0');
+  // Standings: explicitly labeled Live and Banked columns with sort toggle; Bob leads on live pace
+  // (3 live, 0 banked), and expanding Bob shows "—" instead of "0" for unstarted Game 2.
+  const standings = viewer.getByTestId('tg-standings');
+  await expect(standings.getByTestId('tg-standings-sort')).toBeVisible();
   await expect(viewer.getByTestId('tg-total-Bob')).toHaveText('3');
+  await expect(viewer.getByTestId('tg-locked-Bob')).toHaveText('0');
+  await standings.getByRole('button', { name: /Bob/ }).click();
+  await expect(standings.locator('.tg-board-games')).toContainText('PHI @ DAL');
+  await expect(standings.locator('.tg-board-games')).toContainText('—');
+
+  // On mobile (Pixel 7), switching to an open game auto-collapses Standings to a compact summary
+  // bar so the open game stays above the fold; tapping it expands Standings again.
+  await viewer.getByRole('button', { name: /PHI @ DAL/ }).click();
+  await expect(viewer.getByTestId('tg-standings-toggle')).toHaveAttribute('aria-expanded', 'false');
+  await viewer.getByTestId('tg-standings-toggle').click();
+  await expect(viewer.getByTestId('tg-standings-toggle')).toHaveAttribute('aria-expanded', 'true');
+  await viewer.getByRole('button', { name: /CHI @ DET/ }).click();
 
   // The full-screen scoreboard, from the menu (no sign-in needed): every category with who's right
-  // and its status, and the standings at the side. Exit closes it.
+  // and its status, and Live/Banked standings at the side. Exit closes it.
   await viewer.getByRole('button', { name: 'Menu' }).click();
   await viewer.getByRole('menuitem', { name: 'Full screen scoreboard' }).click();
   const tv = viewer.getByTestId('tg-tv');
@@ -117,6 +141,8 @@ test('admin signs in by emailed link, fixes a stat, and the leaderboard moves', 
   await expect(tv.getByTestId('tg-tv-cat-punts')).toContainText('Bob');
   await expect(tv.getByTestId('tg-tv-cat-punts')).toContainText('Live');
   await expect(tv.getByTestId('tg-tv-cat-firstTeam')).toContainText('Final');
+  await expect(tv.getByTestId('tg-tv-standings')).toContainText('Live');
+  await expect(tv.getByTestId('tg-tv-standings')).toContainText('Banked');
   await expect(tv.getByTestId('tg-tv-standings')).toContainText('Bob');
   await tv.getByRole('button', { name: 'Exit full screen' }).click();
   await expect(tv).toHaveCount(0);

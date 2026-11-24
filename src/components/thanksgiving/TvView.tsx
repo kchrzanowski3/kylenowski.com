@@ -6,9 +6,17 @@ import { useEffect, useRef, useState } from 'react';
 import type { Standings as StandingsData } from '../../lib/thanksgiving/scoring';
 import { formatPoints } from '../../lib/thanksgiving/projection';
 import { etDateTime } from '../../lib/thanksgiving/config';
-import { autoGameId, rankStandings, worthBadge, type Game, type GamePhase, type Player } from '../../lib/thanksgiving/view';
+import {
+  autoGameId,
+  rankStandings,
+  worthBadge,
+  type Game,
+  type GamePhase,
+  type Player,
+  type StandingsSort,
+} from '../../lib/thanksgiving/view';
 import { ChampionBanner, RankMedal } from './Festive';
-import { LockIcon, TeamLogo, TeamText } from './icons';
+import { CheckIcon, LiveCircleIcon, PhaseBadge, TeamLogo, TeamText } from './icons';
 import { gameClock, type GameResult } from './Scoreboard';
 
 interface Props {
@@ -45,6 +53,7 @@ function useWakeLock() {
 
 export function TvView({ games, phases, results, standings, locked, players, onExit }: Props) {
   const root = useRef<HTMLDivElement>(null);
+  const [sortBy, setSortBy] = useState<StandingsSort>('live');
   useWakeLock();
 
   // Full screen when the browser allows it; leaving full screen (Esc) closes the scoreboard.
@@ -77,6 +86,7 @@ export function TvView({ games, phases, results, standings, locked, players, onE
   const phaseOf = new Map(phases.map((p) => [p.id, p.phase]));
   const names = new Map(players.map((p) => [p.id, p.name]));
   const champions = (standings?.champions ?? []).map((id) => names.get(id)).filter((n): n is string => Boolean(n));
+  const finalStandings = standings?.status === 'final';
 
   return (
     <div className="tg-tv" ref={root} role="dialog" aria-label="Full-screen scoreboard" data-testid="tg-tv">
@@ -98,7 +108,7 @@ export function TvView({ games, phases, results, standings, locked, players, onE
                   {gStats ? `${g.away.abbr} ${gStats.away} – ${gStats.home} ${g.home.abbr}` : `${g.away.abbr} @ ${g.home.abbr}`}
                 </span>
                 <TeamLogo team={g.home} size={26} standIn />
-                <LockIcon phase={gPhase} size={13} />
+                <PhaseBadge phase={gPhase} compact />
               </button>
             );
           })}
@@ -132,17 +142,51 @@ export function TvView({ games, phases, results, standings, locked, players, onE
                 <tr>
                   <th scope="col">#</th>
                   <th scope="col">Player</th>
-                  <th scope="col" className="tg-num"><LockIcon phase="live" size={13} /> Locked</th>
-                  <th scope="col" className="tg-num">Live</th>
+                  {finalStandings ? (
+                    <th scope="col" className="tg-num">Pts</th>
+                  ) : (
+                    <>
+                      <th scope="col" className="tg-num" aria-sort={sortBy === 'live' ? 'descending' : 'none'}>
+                        <button
+                          type="button"
+                          className={sortBy === 'live' ? 'tg-col-sort tg-live-points tg-col-active' : 'tg-col-sort tg-live-points'}
+                          aria-pressed={sortBy === 'live'}
+                          onClick={() => setSortBy('live')}
+                        >
+                          Live{sortBy === 'live' ? ' ↓' : ''}
+                        </button>
+                      </th>
+                      <th scope="col" className="tg-num" aria-sort={sortBy === 'banked' ? 'descending' : 'none'}>
+                        <button
+                          type="button"
+                          className={sortBy === 'banked' ? 'tg-col-sort tg-board-locked tg-col-active' : 'tg-col-sort tg-board-locked'}
+                          aria-pressed={sortBy === 'banked'}
+                          onClick={() => setSortBy('banked')}
+                        >
+                          <CheckIcon size={12} /> Banked{sortBy === 'banked' ? ' ↓' : ''}
+                        </button>
+                      </th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
-                {rankStandings(standings.rows.filter((r) => names.has(r.playerId)), locked, standings.status === 'final').map((r) => (
+                {rankStandings(standings.rows.filter((r) => names.has(r.playerId)), locked, finalStandings, sortBy).map((r) => (
                   <tr key={r.playerId} className={r.rank === 1 ? 'tg-tv-leader' : undefined}>
                     <td className="tg-rank"><RankMedal rank={r.rank} size={36} /></td>
                     <td>{names.get(r.playerId)}</td>
-                    <td className="tg-num tg-board-locked">{r.locked}</td>
-                    <td className="tg-num tg-live-points">{r.live}</td>
+                    {finalStandings ? (
+                      <td className="tg-num">{r.live}</td>
+                    ) : (
+                      <>
+                        <td className={sortBy === 'live' ? 'tg-num tg-live-points tg-col-active' : 'tg-num tg-live-points tg-col-secondary'}>
+                          {r.live}
+                        </td>
+                        <td className={sortBy === 'banked' ? 'tg-num tg-board-locked tg-col-active' : 'tg-num tg-board-locked tg-col-secondary'}>
+                          {r.locked}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -217,7 +261,11 @@ function TvGame({ game, phase, result, names }: { game: Game; phase: GamePhase; 
                   <td className="tg-num">{worthBadge(c.worth)}</td>
                   <td><TeamText text={c.answer} teams={[game.away, game.home]} /></td>
                   <td className={final ? undefined : 'tg-projected'}>{right.length ? right.join(', ') : '—'}</td>
-                  <td className={final ? 'tg-tv-final' : 'tg-tv-live'}>{final ? '✓ Final' : '○ Live'}</td>
+                  <td className={final ? 'tg-tv-final' : 'tg-tv-live'}>
+                    <span className="tg-tv-status">
+                      {final ? <><CheckIcon size={13} /> Final</> : <><LiveCircleIcon size={13} /> Live</>}
+                    </span>
+                  </td>
                 </tr>
               );
             })}

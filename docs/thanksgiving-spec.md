@@ -136,17 +136,15 @@ The most anyone can score in one game is **37**, if they pick a safety correctly
 
 ### Overall (default view)
 - Shown at the top of `/thanksgiving` as soon as the first game kicks off.
-- One **running total across all 3 games**, in two columns:
-  - **Locked** points: from categories that are final (a finished game's categories are all final). They can't
-    change any more.
-  - **Live** points: locked points plus the projected points from categories that could still change (see
-    "Live scoring").
-- **Order:** by locked points, then live points; players equal on both share a rank. Once every game is final the
-  two are the same, and the tiebreaker below decides.
+- On mobile while filling out picks for an open game, starts collapsed to a compact 1-row summary bar (leader + your rank/points) so the pick form stays above the fold; tap to expand, or tap Hide to collapse again. Starts expanded on desktop and when viewing a live or final game.
+- One **running total across all 3 games**, in two explicitly labeled columns while games are live:
+  - **Live** points (blue): banked points plus the projected points from categories that could still change (see "Live scoring").
+  - **Banked** points (green, with a ✓ check): from categories that are final (a finished game's categories are all final). They can't change any more.
+- **Order:** defaults to **Live** points, then **Banked** points during active games, with a one-tap **`Live | Banked`** toggle (and clickable column headers) to sort by **Banked** points first; players equal on both share a rank. Once every game is final the two columns collapse into a single **Pts** column and the tiebreaker below decides.
 - **Tiebreaker for the overall champion:** whoever's final-score guess (away + home) for the last game (game 3)
   is closest to that game's actual total points. No extra question needed. If that's still tied (equally close,
   or the tied players didn't pick the last game's final score), they're **co-champions**.
-- Expand a player to see their points per game.
+- Expand a player to see their points per game, aligned directly under the main score column(s). Unstarted games show `—` and their kickoff time instead of `0`.
 
 ### Per-game scoreboard
 One view per game, with a row for **each way to score points**:
@@ -175,52 +173,57 @@ Plus that game's winner once it's over: the most points in that game, with ties 
 tiebreaker). Each player's points for the game are shown with their picks (see "Page layout").
 
 ### Page layout
-Kept light on text: the page shows state with icons, not instructions.
+Kept light on text with distinct, non-overlapping icons: a **clock** for open games, a pulsing **Live** badge for active games, a **✓ check** for banked points and finished games, and a **key** icon for PIN-protected accounts. Color semantics are consistent everywhere: **green** means banked/final (cannot change), **blue** means live/in the lead (could still change).
 - **Menu:** top right next to the heading. Signed in, a round icon with your initial opens a menu with "Full
   screen scoreboard", your name, "Add a PIN" / "Change PIN" and "Switch player". Signed out, a person icon opens
-  a menu with just "Full screen scoreboard", and the sign-in card is on the page.
-- **Game tabs**, one per game in kickoff order, each with both teams' logos (from ESPN), the matchup, and a lock:
-  an **open lock** while the game is open for picks, a **green lock** from kickoff while it's being played, and a
-  **grey lock** once it's final. Signed in, each tab also has a **progress bar** of how many of the 15 questions
-  you've answered for that game (full: green).
+  a menu with just "Full screen scoreboard", and the sign-in card is on the page (with a key icon beside names
+  that have a PIN).
+- **Game tabs**, one per game in kickoff order, each with both teams' logos (from ESPN), the matchup, and a
+  phase badge: **clock + Open** while the game is open for picks, a pulsing **Live** badge while it's being
+  played, and **✓ Final** once it's over. Signed in, each tab also has a **progress bar** of how many of the 15
+  questions you've answered for that game (full: green).
 - **Which game opens:** the game being played, else the next game to kick off, else the last game. The page
   follows along as games kick off until you choose a tab yourself.
 - **Game header:** logos and team names ("Bengals @ Commanders"); once the game is under way the score sits
-  between the names ("Bengals 10 – 7 Commanders") with the clock ("Q2 1:55", "Final") below. Then a chip with
-  the lock and the time left until kickoff ("Locked" while it's on, "Final" once it's over), the kickoff time
-  and TV. The pick form starts with the points each question is worth, spelled out ("1 point", "3 points
-  (closest pick wins)").
-- **Picks, from kickoff:** a list of players: you first whenever you're signed in (even with no picks for the
-  game: "No picks for this game"), then everyone who made picks. It starts on you; signed out, on the game's
-  leader. It shows the chosen player's 15 answers with the points each is earning and their total for the game.
-  An answer whose points are locked in (every category behind it final) is green, with a lock by its points; one
-  that's earning points but could still change ("in the lead") is blue; one that's settled with no points for
-  that player, including a skipped question, is greyed out and struck through.
-- **Who's getting points this game:** the per-game scoreboard as a compact list under the picks, one row per
-  category: a short name ("Punts", "Closest score"), its worth as a badge ("3 pts", "1 pt", "1/5 pts"), the
-  value so far, who's right as a count ("Ann", "You", "You + 2", "6 players") and a mark: a green check once the
-  category is final, a grey hollow circle while it could still change. Rows where you're right are tinted green. Tapping a row
-  shows the full category name, worth, value, the names of who's right and the status.
-- **Overall standings:** locked points (green, under a lock) and live points (blue) for each player; a pulsing
-  green dot while points are projected (live); projected points also look different from
-  final ones. A chevron on each row opens that player's points per game.
+  between the names ("Bengals 10 – 7 Commanders") with the clock ("Q2 1:55", "Final") below. Then a phase pill
+  with a clock and countdown until kickoff ("Live" with pulsing dot while it's on, "Final" with check once it's
+  over), the kickoff time and TV. The pick form starts with the points each question is worth, spelled out
+  ("1 point", "3 points (closest pick wins)").
+- **Live & final game sub-tabs:** once a game is scored, a two-tab switcher keeps the page compact:
+  - **My Picks** (or **Picks** when signed out): a player selector (you first whenever you're signed in, even with
+    no picks for the game: "No picks for this game", then everyone who made picks; starts on you, or on the
+    game's leader when signed out) with their total for the game and their 15 answers, each showing the actual
+    game stat inline ("So far: …" / "Final: …"). An answer whose points are banked (every category behind it
+    final) is green with a ✓ check by its points; one earning live points is blue; one settled with no points for
+    that player, including a skipped question, is greyed out and struck through.
+  - **By Category:** the per-game scoreboard as a compact list, one row per category: a short name ("Punts",
+    "Closest score"), its worth as a badge ("3 pts", "1 pt", "1/5 pts"), the value so far, who's right as a count
+    ("Ann", "You", "You + 2", "6 players") and a mark: a green check once the category is final, a hollow circle
+    while it could still change. Rows where you're earning points are tinted green when banked and blue while
+    live. Tapping a row expands the full category details and **every family member's pick** (point-earners first,
+    with their points badge).
+- **Overall standings:** explicitly labeled **Live** (blue) and **✓ Banked** (green) columns with a `Live | Banked`
+  sort toggle (defaulting to Live) and a pulsing green dot while games are live; collapses to a single **Pts**
+  column once every game is final. A chevron on each row opens that player's aligned per-game points (`—` and
+  kickoff time for unstarted games).
 
 ### Live scoring
 - During a game, each category is scored as if the game ended right now (**projected**, counted in live points).
   Projected points look different from final ones, and a category becomes final as soon as its answer can't
-  change any more (see the Status column); its points are then **locked**.
+  change any more (see the Status column); its points are then **banked**.
 - Updates reach phones about **15–45 seconds after the ESPN feed** (see "Live updates" below).
 
 ### Full-screen scoreboard
 For a computer or TV left on during the games. "Full screen scoreboard" in the menu opens it (full screen where
 the browser allows it); "Exit full screen" or Esc closes it. Nothing is tucked away:
-- A strip of the games (logos, matchup, lock). It follows the game the page would open on (the live one, else the
-  next); choosing another game keeps it until the followed game changes.
+- A strip of the games (logos, matchup, phase badge). It follows the game the page would open on (the live one,
+  else the next); choosing another game keeps it until the followed game changes.
 - The game: logos, team names and score, the clock (or, before kickoff, the kickoff time, TV and Vegas projection).
 - A table of every category: its full name, worth ("3 pts"), the value so far, **every player who's right, by
-  name**, and its status (✓ Final / ○ Live).
-- The overall standings in a box at the right, sized to its content: rank, player, locked and live points, in
-  the same order as on the page.
+  name**, and its status (check Final / circle Live).
+- The overall standings in a box at the right, sized to its content: rank, player, **Live** and **✓ Banked**
+  points (defaulting to Live-first, with clickable headers to toggle sort, and collapsing to a single **Pts**
+  column once every game is final).
 - Teams are shown by their logos (in the games strip and the "so far" values), with the abbreviation in their
   place if a logo can't be loaded.
 - It keeps the screen awake while it's open, where the browser supports it.

@@ -3,14 +3,18 @@ import { describe, expect, it } from 'vitest';
 import { scoreGame } from '../../src/lib/thanksgiving/scoring';
 import { preGameStats } from '../../src/lib/thanksgiving/stats';
 import {
+  CATEGORY_PICK_ROW,
   CATEGORY_SHORT,
   autoGameId,
   averageHint,
+  categoryPicks,
   defaultPickerPlayer,
   gamePhase,
   pickerPlayers,
   lockedPoints,
+  lockedPointsByGame,
   rankStandings,
+  rowActual,
   rowLocked,
   splitTeams,
   rowLost,
@@ -19,20 +23,21 @@ import {
   teamLogo,
   whoCount,
   worthBadge,
+  type Game,
 } from '../../src/lib/thanksgiving/view';
 
 const KICKOFF = Date.parse('2026-11-26T18:00:00Z');
 
-describe('game phase (the lock icon)', () => {
+describe('game phase', () => {
   it('is open before kickoff, live from kickoff until the game is final, then final', () => {
     expect(gamePhase(KICKOFF, null, KICKOFF - 1)).toBe('open');
-    expect(gamePhase(KICKOFF, null, KICKOFF)).toBe('live'); // locked, even before the feed shows it started
+    expect(gamePhase(KICKOFF, null, KICKOFF)).toBe('live'); // kicked off, even before the feed shows it started
     expect(gamePhase(KICKOFF, 'pre', KICKOFF + 1)).toBe('live');
     expect(gamePhase(KICKOFF, 'in', KICKOFF + 1)).toBe('live');
     expect(gamePhase(KICKOFF, 'post', KICKOFF + 1)).toBe('final');
   });
 
-  it('a final-looking result before kickoff still leaves the game open (the lock decides)', () => {
+  it('a final-looking result before kickoff still leaves the game open (kickoff decides)', () => {
     expect(gamePhase(KICKOFF, 'post', KICKOFF - 1)).toBe('open');
   });
 });
@@ -64,6 +69,15 @@ describe('player picker', () => {
     expect(rowPoints(cats, 'punts', 'a')).toBe(0);
     expect(rowPoints(cats, 'sacks', 'a')).toBe(0);
   });
+  it('returns the inline actual stat for a pick row', () => {
+    const scoredCats = [
+      { key: 'finalClosest', answer: 'CHI 10 – DET 14' },
+      { key: 'punts', answer: '7' },
+    ];
+    expect(rowActual(scoredCats, 'final')).toBe('CHI 10 – DET 14');
+    expect(rowActual(scoredCats, 'punts')).toBe('7');
+    expect(rowActual(scoredCats, 'sacks')).toBeNull();
+  });
   it('lists you first whenever you are signed in, even with no picks for the game', () => {
     expect(pickerPlayers(['a', 'b'], 'me')).toEqual(['me', 'a', 'b']);
     expect(pickerPlayers(['a', 'me', 'b'], 'me')).toEqual(['me', 'a', 'b']);
@@ -84,10 +98,50 @@ describe('team logos', () => {
 });
 
 describe("who's getting points", () => {
-  it('every category has a short name', () => {
+  it('every category has a short name and pick-row mapping', () => {
     const score = scoreGame({ ...preGameStats(), state: 'in', period: 1 }, [], { awayAbbr: 'CIN', homeAbbr: 'WSH', scorers: [] });
     expect(score.categories).toHaveLength(17);
-    for (const c of score.categories) expect(CATEGORY_SHORT[c.key], c.key).toMatch(/\S/);
+    for (const c of score.categories) {
+      expect(CATEGORY_SHORT[c.key], c.key).toMatch(/\S/);
+      expect(CATEGORY_PICK_ROW[c.key], c.key).toMatch(/\S/);
+    }
+  });
+
+  it("lists every family member's pick for a category, point-earners first, then you, then alphabetical", () => {
+    const game: Game = {
+      id: 'g1',
+      order: 1,
+      away: { id: '3', abbr: 'CHI', name: 'Chicago Bears', shortName: 'Bears', color: null },
+      home: { id: '8', abbr: 'DET', name: 'Detroit Lions', shortName: 'Lions', color: null },
+      tv: 'CBS',
+      kickoff: KICKOFF,
+      line: null,
+      projection: null,
+      scorers: [],
+      averages: { away: null, home: null, nfl: null },
+    };
+    const players = [
+      { id: 'a', name: 'Alice', hasPin: false },
+      { id: 'b', name: 'Bob', hasPin: false },
+      { id: 'c', name: 'Carol', hasPin: false },
+    ];
+    const picks = [
+      { playerId: 'a', answers: { punts: 9, finalAway: 20, finalHome: 27 } },
+      { playerId: 'b', answers: { punts: 7, finalAway: 17, finalHome: 24 } },
+      { playerId: 'c', answers: { punts: 4 } },
+      { playerId: 'removed', answers: { punts: 7 } },
+    ];
+    expect(categoryPicks(game, { key: 'punts', points: { b: 3 } }, picks, players, 'c')).toEqual([
+      { playerId: 'b', name: 'Bob', isMe: false, pick: '7', points: 3 },
+      { playerId: 'c', name: 'Carol', isMe: true, pick: '4', points: 0 },
+      { playerId: 'a', name: 'Alice', isMe: false, pick: '9', points: 0 },
+    ]);
+    expect(categoryPicks(game, { key: 'finalClosest', points: { a: 3 } }, picks, players, null)).toEqual([
+      { playerId: 'a', name: 'Alice', isMe: false, pick: 'CHI 20 – DET 27', points: 3 },
+      { playerId: 'b', name: 'Bob', isMe: false, pick: 'CHI 17 – DET 24', points: 0 },
+      { playerId: 'c', name: 'Carol', isMe: false, pick: '', points: 0 },
+    ]);
+    expect(categoryPicks(game, { key: 'punts', points: {} }, null, players, null)).toEqual([]);
   });
 
   it('worth is numbers only, with pt/pts', () => {
@@ -152,7 +206,7 @@ describe("a player's picks: settled rows they lost are greyed out", () => {
   });
 });
 
-describe('locked vs live points', () => {
+describe('banked vs live points', () => {
   const cats: { key: string; status: string; points: Record<string, number> }[] = [
     { key: 'firstTeam', status: 'final', points: { a: 1 } },
     { key: 'punts', status: 'live', points: { b: 3 } },
@@ -160,31 +214,44 @@ describe('locked vs live points', () => {
     { key: 'finalWinner', status: 'final', points: { a: 1 } },
     { key: 'finalWithin15', status: 'final', points: {} },
   ];
-  it("a pick's points are locked only when every category behind it is final", () => {
+  it("a pick's points are banked only when every category behind it is final", () => {
     expect(rowLocked(cats, 'firstTeam')).toBe(true);
     expect(rowLocked(cats, 'punts')).toBe(false);
     expect(rowLocked(cats, 'final')).toBe(false); // one of the three final-score categories is still live
     expect(rowLocked(cats, 'sacks')).toBe(false); // not scored
   });
 
-  it('locked points count final categories across every game; live ones do not', () => {
+  it('banked points count final categories per game and across every game; live ones do not', () => {
     const results = {
       g1: { score: { categories: cats } },
       g2: { score: { categories: [{ key: 'sacks', status: 'final', points: { b: 3, a: 3 } }] } },
       g3: undefined,
     };
+    expect(lockedPointsByGame(results)).toEqual({
+      g1: { a: 2 },
+      g2: { b: 3, a: 3 },
+      g3: {},
+    });
     expect(lockedPoints(results)).toEqual({ a: 5, b: 3 });
   });
 
-  it('standings are ordered by locked points, then live points; equal on both share a rank', () => {
+  it('standings default to Live pace (then Banked), and can toggle to Banked (then Live); equal on both share a rank', () => {
     const rows = [
       { playerId: 'a', rank: 1, total: 12 },
       { playerId: 'b', rank: 2, total: 9 },
       { playerId: 'c', rank: 2, total: 9 },
       { playerId: 'd', rank: 4, total: 4 },
     ];
-    const ranked = rankStandings(rows, { a: 2, b: 6, c: 6, d: 6 }, false);
-    expect(ranked.map((r) => [r.playerId, r.rank, r.locked, r.live])).toEqual([
+    const banked = { a: 2, b: 6, c: 6, d: 6 };
+    // Default: Live pace first
+    expect(rankStandings(rows, banked, false).map((r) => [r.playerId, r.rank, r.locked, r.live])).toEqual([
+      ['a', 1, 2, 12],
+      ['b', 2, 6, 9],
+      ['c', 2, 6, 9],
+      ['d', 4, 6, 4],
+    ]);
+    // Toggled: Banked first
+    expect(rankStandings(rows, banked, false, 'banked').map((r) => [r.playerId, r.rank, r.locked, r.live])).toEqual([
       ['b', 1, 6, 9],
       ['c', 1, 6, 9],
       ['d', 3, 6, 4],
@@ -192,12 +259,12 @@ describe('locked vs live points', () => {
     ]);
   });
 
-  it('once every game is final, locked = live and the published order (with the tiebreaker) stands', () => {
+  it('once every game is final, banked = live and the published order (with the tiebreaker) stands', () => {
     const rows = [
       { playerId: 'a', rank: 1, total: 9 },
       { playerId: 'b', rank: 2, total: 9 }, // lost the tiebreaker
     ];
-    expect(rankStandings(rows, {}, true)).toEqual([
+    expect(rankStandings(rows, {}, true, 'banked')).toEqual([
       { playerId: 'a', rank: 1, locked: 9, live: 9 },
       { playerId: 'b', rank: 2, locked: 9, live: 9 },
     ]);

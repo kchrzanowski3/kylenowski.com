@@ -116,10 +116,13 @@ test('join, pick, sign in on another phone, lock at kickoff, reveal', async ({ b
   await carol.getByRole('button', { name: 'Join', exact: true }).click();
   await expect(carol.getByRole('alert')).toContainText('is taken');
 
-  // Alice on a second phone: her name needs the PIN, and her saved picks are there.
+  // Alice on a second phone: her name needs the PIN (shown with a key icon, not a lock emoji), and her saved picks are there.
   const alice2 = await (await browser.newContext()).newPage();
   await alice2.goto('/thanksgiving');
-  await alice2.getByRole('button', { name: /^Alice/ }).click();
+  const aliceChip = alice2.getByRole('button', { name: /^Alice/ });
+  await expect(aliceChip).not.toContainText('🔒');
+  await expect(aliceChip.getByRole('img', { name: 'has a PIN' })).toBeVisible();
+  await aliceChip.click();
   await alice2.getByLabel('PIN for Alice').fill('9999');
   await alice2.getByRole('button', { name: 'Sign in' }).click();
   await expect(alice2.getByRole('alert')).toContainText('Wrong PIN');
@@ -137,9 +140,9 @@ test('join, pick, sign in on another phone, lock at kickoff, reveal', async ({ b
   await db.doc('tgGames/g1').update({ kickoff: Timestamp.fromMillis(lockAt) });
   await alice.waitForTimeout(Math.max(0, lockAt - Date.now()));
   for (const page of [alice, bob, carol]) {
-    // A green lock (the game is on) on its tab and in the game's header.
+    // A live badge on its tab and in the game's header.
     await expect(page.getByTestId('tg-lock-status')).toHaveAttribute('data-phase', 'live', { timeout: 15_000 });
-    await expect(page.getByTestId('tg-lock-status')).toHaveText('Locked');
+    await expect(page.getByTestId('tg-lock-status')).toHaveText('Live');
     await expect(page.getByRole('button', { name: /CHI @ DET/ }).locator('[data-phase]')).toHaveAttribute('data-phase', 'live');
     // Pick a player from the list to see their picks.
     const picks = page.getByTestId('tg-reveal');

@@ -213,6 +213,21 @@ export function averageHint(field: 'fgs' | 'punts' | 'tds' | 'turnovers' | 'sack
   return `NFL average ${Math.round(nfl[field] * 20) / 10} per game`;
 }
 
+/**
+ * Starting value when a player taps a −/+ stepper on an empty numeric pick: the rounded NFL
+ * average (per game for combined stats, per team for longest TD), clamped to [0, max], or 0 when
+ * no NFL average is available.
+ */
+export function stepperDefault(
+  field: 'fgs' | 'punts' | 'tds' | 'turnovers' | 'sacks' | 'longestTd',
+  nfl: TeamAverages | null,
+  max: number,
+): number {
+  if (!nfl || typeof nfl[field] !== 'number') return 0;
+  const avg = field === 'longestTd' ? nfl.longestTd : nfl[field] * 2;
+  return Math.max(0, Math.min(max, Math.round(avg)));
+}
+
 /** "3 pts", "1 pt", "1/5 pts": a category's worth for its badge. */
 export function worthBadge(worth: string): string {
   const n = shortWorth(worth);

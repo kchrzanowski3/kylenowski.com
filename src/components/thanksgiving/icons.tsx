@@ -111,6 +111,15 @@ export function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
+/** Downward arrow for "Next unanswered" / "Fix error" jump actions. */
+export function ArrowDownIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg className="tg-icon" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 5v14m-6-6l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 /**
  * A team's logo from ESPN. Where the abbreviation is shown next to it, the logo is decorative and is
  * hidden if it can't be loaded; with `standIn`, the logo stands in for the abbreviation (its alt

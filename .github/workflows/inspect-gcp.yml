@@ -33,8 +33,6 @@ jobs:
           workload_identity_provider: projects/420500505231/locations/global/workloadIdentityPools/github/providers/github
           service_account: ci-reader@kylenowski-com.iam.gserviceaccount.com
 
-      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
-
       - name: Run
         env:
           KIND: ${{ inputs.kind }}

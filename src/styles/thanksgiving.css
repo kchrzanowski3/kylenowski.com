@@ -227,7 +227,7 @@
 .tg-board > li + li { border-top: 1px solid var(--tg-line); }
 .tg-board > li.tg-me { background: var(--tg-soft); }
 .tg-board-row {
-  display: grid; grid-template-columns: 2rem 1fr auto auto; gap: 0.5rem; align-items: center;
+  display: grid; grid-template-columns: 2rem 1fr 2.75rem 2.75rem 14px; gap: 0.5rem; align-items: center;
   width: 100%; padding: 0.6rem 0.9rem; border: 0; background: none; color: var(--fg); text-align: left; cursor: pointer; font: inherit;
 }
 .tg-rank { font-weight: 700; color: var(--muted); }
@@ -257,7 +257,11 @@
 .tg-pick-q { color: var(--muted); }
 .tg-pick-a { font-weight: 600; overflow-wrap: anywhere; }
 .tg-pick-pts { text-align: right; font-weight: 800; color: var(--tg-ok); }
-.tg-pick-hit { background: color-mix(in srgb, var(--tg-ok) 10%, transparent); }
+.tg-pick-locked { background: color-mix(in srgb, var(--tg-ok) 12%, transparent); }
+.tg-pick-locked .tg-pick-pts { color: var(--tg-ok); }
+.tg-pick-lead { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.tg-pick-lead .tg-pick-pts { color: var(--accent); }
+.tg-pick-pts { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.2rem; }
 .tg-pick-lost { opacity: 0.4; }
 .tg-pick-lost .tg-pick-a { font-weight: 400; text-decoration: line-through; }
 .tg-categories td, .tg-categories th { white-space: normal; }
@@ -306,3 +310,45 @@
 .tg-scorer-editor ul { padding-left: 1.2rem; }
 /* On the admin screen the stat name column scrolls with the table, so it never covers the Set buttons. */
 .tg-admin .tg-reveal tbody th { position: static; }
+
+/* Overall standings: locked and live columns */
+.tg-board-head {
+  display: grid; grid-template-columns: 2rem 1fr 2.75rem 2.75rem 14px; gap: 0.5rem; padding: 0 0.9rem 0.25rem;
+  font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em;
+}
+.tg-board-head > span, .tg-board-row .tg-points { text-align: right; }
+.tg-board-locked { color: var(--tg-ok); }
+.tg-live-points { color: var(--accent); }
+
+/* Full-screen scoreboard */
+.tg-tv {
+  position: fixed; inset: 0; z-index: 50; overflow: auto; background: var(--bg); color: var(--fg);
+  display: grid; grid-template-rows: auto 1fr; gap: 0.75rem; padding: clamp(0.75rem, 1.5vw, 1.5rem);
+  font-size: clamp(0.95rem, 1.15vw, 1.35rem);
+}
+.tg-tv-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.tg-tv-games { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.tg-tv-tab {
+  display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.6rem; border-radius: 0.5rem;
+  border: 1px solid var(--tg-line); background: var(--bg); color: var(--fg); font: inherit; font-size: 0.85em; font-weight: 700; cursor: pointer;
+}
+.tg-tv-tab[aria-current='page'] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.tg-tv-exit {
+  padding: 0.35rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--tg-line); background: var(--tg-soft);
+  color: var(--fg); font: inherit; font-size: 0.85em; cursor: pointer;
+}
+.tg-tv-body { display: grid; grid-template-columns: minmax(0, 2.6fr) minmax(16rem, 1fr); gap: clamp(1rem, 2vw, 2.5rem); align-items: start; }
+@media (max-width: 900px) { .tg-tv-body { grid-template-columns: 1fr; } }
+.tg-tv-matchup { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 0; font-size: 1.9em; }
+.tg-tv-sub { margin: 0.15rem 0 0.6rem; }
+.tg-tv .tg-clock { font-size: 1.3em; }
+.tg-tv-table { width: 100%; border-collapse: collapse; }
+.tg-tv-table { font-size: 0.95em; }
+.tg-tv-table th, .tg-tv-table td { text-align: left; padding: 0.28em 0.6em; border-bottom: 1px solid var(--tg-line); vertical-align: top; }
+.tg-tv-table thead th { font-size: 0.8em; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.tg-tv-table .tg-num { text-align: right; white-space: nowrap; }
+.tg-tv-cats tbody th { font-weight: 600; }
+.tg-tv-final { color: var(--tg-ok); font-weight: 700; white-space: nowrap; }
+.tg-tv-live { color: var(--muted); white-space: nowrap; }
+.tg-tv-standings h2 { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0.5rem; font-size: 1.3em; }
+.tg-tv-standings .tg-rank { color: var(--muted); font-weight: 700; }

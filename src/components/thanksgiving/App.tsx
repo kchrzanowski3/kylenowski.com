@@ -1,10 +1,11 @@
 import type { User } from 'firebase/auth';
 import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getClients, watchUser, type Clients } from '../../lib/thanksgiving/client';
 import { QUESTION_COUNT, answeredCount, type Answers } from '../../lib/thanksgiving/questions';
 import type { Standings as StandingsData } from '../../lib/thanksgiving/scoring';
-import { autoGameId, gamePhase, toGame, type Game, type Player } from '../../lib/thanksgiving/view';
+import { autoGameId, gamePhase, lockedPoints, toGame, type Game, type Player } from '../../lib/thanksgiving/view';
+import { TvView } from './TvView';
 import { AccountMenu } from './AccountMenu';
 import { LockIcon, TeamLogo } from './icons';
 import type { GameResult } from './Scoreboard';
@@ -97,6 +98,12 @@ export default function App() {
   const phaseOf = new Map(phases.map((p) => [p.id, p.phase]));
   const activeId = tab && games?.some((g) => g.id === tab) ? tab : autoGameId(phases);
 
+  // Locked points (final categories, finished games) for the standings and the full-screen view.
+  const locked = useMemo(() => lockedPoints(results), [results]);
+  const [tv, setTv] = useState(false);
+  const exitTv = useCallback(() => setTv(false), []);
+  const enterTv = useCallback(() => setTv(true), []);
+
   if (loadError) return <p className="tg-error" role="alert">{loadError}</p>;
   if (!clients || games === null || players === null || user === undefined) return <p className="muted">Loading…</p>;
 
@@ -106,15 +113,17 @@ export default function App() {
 
   return (
     <div className="tg">
-      {me ? (
-        <AccountMenu clients={clients} me={me} />
-      ) : waitingForPlayer ? (
+      <AccountMenu clients={clients} me={me} onFullScreen={enterTv} />
+      {tv && (
+        <TvView games={games} phases={phases} results={results} standings={standings} locked={locked} players={players} onExit={exitTv} />
+      )}
+      {me ? null : waitingForPlayer ? (
         <p className="muted">Signing you in…</p>
       ) : (
         <SignIn clients={clients} players={players} joinOpen={joinOpen} signedInElsewhere={!!user && !me} />
       )}
 
-      {standings && standings.status !== 'pre' && <Standings standings={standings} games={games} players={players} me={me} />}
+      {standings && standings.status !== 'pre' && <Standings standings={standings} games={games} players={players} me={me} locked={locked} />}
 
       {games.length === 0 ? (
         <p className="muted">The games will show up here shortly.</p>

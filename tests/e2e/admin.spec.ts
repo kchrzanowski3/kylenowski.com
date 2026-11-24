@@ -99,8 +99,27 @@ test('admin signs in by emailed link, fixes a stat, and the leaderboard moves', 
   // the first score is decided and he didn't pick it; his punts are earning points.
   await expect(viewer.getByTestId('tg-reveal-player').locator('option:checked')).toHaveText('Bob');
   await expect(viewer.getByTestId('tg-pick-firstTeam')).toHaveClass(/tg-pick-lost/);
-  await expect(viewer.getByTestId('tg-pick-punts')).toHaveClass(/tg-pick-hit/);
+  await expect(viewer.getByTestId('tg-pick-punts')).toHaveClass(/tg-pick-lead/); // in the lead, not locked yet
   await expect(viewer.getByTestId('tg-pick-sacks')).not.toHaveClass(/tg-pick-lost/); // still live
+
+  // Standings: Bob leads on live points; nothing is locked in yet (punts can still change).
+  await expect(viewer.getByTestId('tg-locked-Bob')).toHaveText('0');
+  await expect(viewer.getByTestId('tg-total-Bob')).toHaveText('3');
+
+  // The full-screen scoreboard, from the menu (no sign-in needed): every category with who's right
+  // and its status, and the standings at the side. Exit closes it.
+  await viewer.getByRole('button', { name: 'Menu' }).click();
+  await viewer.getByRole('menuitem', { name: 'Full screen scoreboard' }).click();
+  const tv = viewer.getByTestId('tg-tv');
+  await expect(tv).toBeVisible();
+  await expect(tv.getByTestId('tg-tv-matchup')).toContainText(/Bears\s*10\s*–\s*14\s*Lions/);
+  await expect(tv.getByTestId('tg-tv-cat-punts')).toContainText('Total punts');
+  await expect(tv.getByTestId('tg-tv-cat-punts')).toContainText('Bob');
+  await expect(tv.getByTestId('tg-tv-cat-punts')).toContainText('Live');
+  await expect(tv.getByTestId('tg-tv-cat-firstTeam')).toContainText('Final');
+  await expect(tv.getByTestId('tg-tv-standings')).toContainText('Bob');
+  await tv.getByRole('button', { name: 'Exit full screen' }).click();
+  await expect(tv).toHaveCount(0);
 
   // Wide tables scroll inside their own box; the page itself never scrolls sideways on a phone.
   for (const p of [admin, viewer]) {

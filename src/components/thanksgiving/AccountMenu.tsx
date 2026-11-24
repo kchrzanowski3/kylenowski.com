@@ -1,5 +1,6 @@
-// The signed-in player's menu, top right of the page (docs/thanksgiving-spec.md, "Page layout"):
-// who you're playing as, add or change your PIN, switch player.
+// The menu at the top right of the page (docs/thanksgiving-spec.md, "Page layout"): the full-screen
+// scoreboard and, when signed in, who you're playing as, add or change your PIN, switch player.
+// Signed out it's a plain person icon with just the full-screen item.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { changePin, switchPlayer, type Clients } from '../../lib/thanksgiving/client';
@@ -13,7 +14,7 @@ function Slot({ children }: { children: ReactNode }) {
   return slot ? createPortal(children, slot) : <div className="tg-account-inline">{children}</div>;
 }
 
-export function AccountMenu({ clients, me }: { clients: Clients; me: Player }) {
+export function AccountMenu({ clients, me, onFullScreen }: { clients: Clients; me: Player | null; onFullScreen: () => void }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [pin, setPin] = useState('');
@@ -41,6 +42,7 @@ export function AccountMenu({ clients, me }: { clients: Clients; me: Player }) {
     if (!isValidPin(pin)) return setMessage({ ok: false, text: 'A PIN is 4 digits.' });
     setBusy(true);
     try {
+      if (!me) return;
       await changePin(clients.auth, pin);
       setMessage({ ok: true, text: 'PIN saved.' });
       setEditing(false);
@@ -60,16 +62,28 @@ export function AccountMenu({ clients, me }: { clients: Clients; me: Player }) {
           className="tg-avatar"
           aria-haspopup="true"
           aria-expanded={open}
-          aria-label={`Account: ${me.name}`}
+          aria-label={me ? `Account: ${me.name}` : 'Menu'}
           onClick={() => { setOpen(!open); setMessage(null); setEditing(false); }}
         >
-          <span aria-hidden="true">{me.name.trim().charAt(0).toUpperCase()}</span>
-          <span className="tg-sr-only" data-testid="tg-me">{me.name}</span>
+          {me ? (
+            <>
+              <span aria-hidden="true">{me.name.trim().charAt(0).toUpperCase()}</span>
+              <span className="tg-sr-only" data-testid="tg-me">{me.name}</span>
+            </>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="8.5" r="4" fill="currentColor" />
+              <path d="M4 20.5c1.2-4.2 4.4-6.2 8-6.2s6.8 2 8 6.2" fill="currentColor" />
+            </svg>
+          )}
         </button>
         {open && (
           <div className="tg-menu-panel" role="menu" aria-label="Account">
-            <p className="tg-menu-name">{me.name}</p>
-            {editing ? (
+            <button type="button" role="menuitem" className="tg-menu-item" onClick={() => { setOpen(false); onFullScreen(); }}>
+              Full screen scoreboard
+            </button>
+            {me && <p className="tg-menu-name">{me.name}</p>}
+            {!me ? null : editing ? (
               <form onSubmit={submit} className="tg-form tg-menu-form">
                 <label htmlFor="tg-setpin">New 4-digit PIN</label>
                 <input
@@ -90,9 +104,11 @@ export function AccountMenu({ clients, me }: { clients: Clients; me: Player }) {
                 {me.hasPin ? 'Change PIN' : 'Add a PIN'}
               </button>
             )}
-            <button type="button" role="menuitem" className="tg-menu-item" onClick={() => { setOpen(false); void switchPlayer(clients.auth); }}>
-              Switch player
-            </button>
+            {me && (
+              <button type="button" role="menuitem" className="tg-menu-item" onClick={() => { setOpen(false); void switchPlayer(clients.auth); }}>
+                Switch player
+              </button>
+            )}
             {message && <p className={message.ok ? 'tg-ok tg-small' : 'tg-error tg-small'} role="status">{message.text}</p>}
           </div>
         )}

@@ -17,8 +17,8 @@ PROJECT_ID="${PROJECT_ID:-kylenowski-com}"
 REGION="${REGION:-us-central1}"
 BUDGET_USD="${BUDGET_USD:-10}"
 
-# GitHub identity. Numeric IDs (not names) so a renamed/re-created repo can't inherit access.
-GITHUB_REPO="kchrzanowski3/kylenowski.com"
+# GitHub identity (kchrzanowski3/kylenowski.com).
+# Numeric IDs (not names) so a renamed/re-created repo can't inherit access.
 GITHUB_REPO_ID="1466849242"
 GITHUB_OWNER_ID="24440832"
 

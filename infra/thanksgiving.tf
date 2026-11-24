@@ -141,9 +141,23 @@ resource "google_storage_bucket" "functions_source" {
   public_access_prevention    = "enforced"
   force_destroy               = true
 
+  versioning {
+    enabled = true
+  }
+
   lifecycle_rule {
     condition {
       age = 30
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  lifecycle_rule {
+    condition {
+      days_since_noncurrent_time = 30
+      with_state                 = "ARCHIVED"
     }
     action {
       type = "Delete"

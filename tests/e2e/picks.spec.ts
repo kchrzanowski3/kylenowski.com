@@ -359,5 +359,47 @@ test('masthead TV & Rules modal, PIN-less sign-in undo toast, and AccountMenu Ca
   }
 });
 
+test('demoAlerts=1 previews TV Last Big Play strip, sound toggle, mobile toast, and Recent updates strip', async ({ page }) => {
+  await seed(3_600_000);
+  await join(page, 'Kyle');
+  // Demo bar is hidden during normal use.
+  await expect(page.getByTestId('tg-demo-bar')).toHaveCount(0);
+
+  // Opening with ?demoAlerts=1 enables preview triggers for mobile and TV.
+  await page.goto('/thanksgiving?demoAlerts=1');
+  await expect(page.getByTestId('tg-demo-bar')).toBeVisible();
+  await page.getByTestId('tg-mobile-demo-alert').click();
+
+  // Mobile toast appears and Recent updates strip captures it.
+  const toast = page.getByTestId('tg-mobile-alert-toast');
+  await expect(toast).toBeVisible();
+  await expect(toast).toContainText('FIRST TD');
+  await expect(toast).toContainText('Jahmyr Gibbs');
+
+  const recent = page.getByTestId('tg-recent-updates');
+  await expect(recent).toBeVisible();
+  await page.getByTestId('tg-recent-toggle').click();
+  await expect(recent).toContainText('First TD scorer');
+
+  // Open TV view: persistent Last Big Play strip is visible, sound starts muted, and demo button cycles.
+  await page.getByTestId('tg-tv-btn').click();
+  const tv = page.getByTestId('tg-tv');
+  await expect(tv).toBeVisible();
+  await expect(tv.getByTestId('tg-tv-play-strip')).toContainText('FIRST TD');
+
+  const soundBtn = tv.getByTestId('tg-tv-sound-toggle');
+  await expect(soundBtn).toHaveAttribute('aria-pressed', 'false');
+  await soundBtn.click();
+  await expect(soundBtn).toHaveAttribute('aria-pressed', 'true');
+
+  // Cycling through Big Swing -> Halftime -> Game Final updates the persistent strip in place.
+  await tv.getByTestId('tg-tv-demo-alert').click();
+  await expect(tv.getByTestId('tg-tv-play-strip')).toContainText('TURNOVER');
+  await tv.getByTestId('tg-tv-demo-alert').click();
+  await expect(tv.getByTestId('tg-tv-play-strip')).toContainText('HALFTIME');
+  await tv.getByTestId('tg-tv-demo-alert').click();
+  await expect(tv.getByTestId('tg-tv-play-strip')).toContainText('FINAL');
+});
+
 
 

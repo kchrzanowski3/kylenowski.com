@@ -3,7 +3,9 @@
 // scoring category with who's right, and the overall standings at the side. It follows the live game
 // and keeps the screen awake.
 import { useEffect, useRef, useState } from 'react';
-import type { Standings as StandingsData } from '../../lib/thanksgiving/scoring';
+import type { GameAlert } from '../../lib/thanksgiving/alerts';
+import type { CategoryKey, Standings as StandingsData } from '../../lib/thanksgiving/scoring';
+import { playChime } from '../../lib/thanksgiving/sound';
 import { formatPoints } from '../../lib/thanksgiving/projection';
 import { etDateTime } from '../../lib/thanksgiving/config';
 import {
@@ -15,8 +17,9 @@ import {
   type Player,
   type StandingsSort,
 } from '../../lib/thanksgiving/view';
+import { TvPlayStrip } from './Alerts';
 import { ChampionBanner, RankMedal } from './Festive';
-import { CheckIcon, LiveCircleIcon, PhaseBadge, TeamLogo, TeamText } from './icons';
+import { CheckIcon, LiveCircleIcon, PhaseBadge, SoundIcon, TeamLogo, TeamText } from './icons';
 import { gameClock, type GameResult } from './Scoreboard';
 
 interface Props {
@@ -26,6 +29,13 @@ interface Props {
   standings: StandingsData | null;
   locked: Record<string, number>;
   players: Player[];
+  playAlerts?: Record<string, GameAlert>;
+  categoryFlashes?: Record<string, Partial<Record<CategoryKey, 'final' | 'live'>>>;
+  rankUpIds?: readonly string[];
+  latestAlert?: GameAlert | null;
+  demoMode?: boolean;
+  demoNextLabel?: string;
+  onDemoAlert?: (gameId: string | null) => void;
   onExit: () => void;
 }
 
@@ -51,10 +61,36 @@ function useWakeLock() {
   }, []);
 }
 
-export function TvView({ games, phases, results, standings, locked, players, onExit }: Props) {
+export function TvView({
+  games,
+  phases,
+  results,
+  standings,
+  locked,
+  players,
+  playAlerts = {},
+  categoryFlashes = {},
+  rankUpIds = [],
+  latestAlert = null,
+  demoMode = false,
+  demoNextLabel,
+  onDemoAlert,
+  onExit,
+}: Props) {
   const root = useRef<HTMLDivElement>(null);
   const [sortBy, setSortBy] = useState<StandingsSort>('live');
+  const [soundOn, setSoundOn] = useState(false);
+  const lastChimedId = useRef<string | null>(latestAlert?.id ?? null);
   useWakeLock();
+
+  // Play a subtle chime (only when user unmuted) on banked points or Game Final.
+  useEffect(() => {
+    if (!latestAlert || latestAlert.id === lastChimedId.current) return;
+    lastChimedId.current = latestAlert.id;
+    if (!soundOn) return;
+    if (latestAlert.kind === 'final') playChime('final');
+    else if (latestAlert.banked.length > 0) playChime('banked');
+  }, [latestAlert, soundOn]);
 
   // Full screen when the browser allows it; leaving full screen (Esc) closes the scoreboard.
   useEffect(() => {
@@ -87,6 +123,15 @@ export function TvView({ games, phases, results, standings, locked, players, onE
   const names = new Map(players.map((p) => [p.id, p.name]));
   const champions = (standings?.champions ?? []).map((id) => names.get(id)).filter((n): n is string => Boolean(n));
   const finalStandings = standings?.status === 'final';
+  const rankUpSet = new Set(rankUpIds);
+
+  const toggleSound = () => {
+    setSoundOn((prev) => {
+      const next = !prev;
+      if (next) playChime('confirm');
+      return next;
+    });
+  };
 
   return (
     <div className="tg-tv" ref={root} role="dialog" aria-label="Full-screen scoreboard" data-testid="tg-tv">
@@ -113,12 +158,44 @@ export function TvView({ games, phases, results, standings, locked, players, onE
             );
           })}
         </nav>
-        <button type="button" className="tg-tv-exit" onClick={onExit}>Exit full screen</button>
+        <div className="tg-tv-actions">
+          {demoMode && onDemoAlert && (
+            <button
+              type="button"
+              className="tg-tv-control tg-tv-demo-btn"
+              onClick={() => onDemoAlert(activeId)}
+              data-testid="tg-tv-demo-alert"
+            >
+              Demo: {demoNextLabel ?? 'Alert'}
+            </button>
+          )}
+          <button
+            type="button"
+            className={soundOn ? 'tg-tv-control tg-tv-sound-on' : 'tg-tv-control'}
+            aria-pressed={soundOn}
+            onClick={toggleSound}
+            data-testid="tg-tv-sound-toggle"
+            title={soundOn ? 'Chime enabled on banked points and game final' : 'Enable chime on banked points and game final'}
+          >
+            <SoundIcon muted={!soundOn} size={15} />
+            <span>{soundOn ? 'Sound on' : 'Muted'}</span>
+          </button>
+          <button type="button" className="tg-tv-exit" onClick={onExit}>Exit full screen</button>
+        </div>
       </header>
 
       <div className="tg-tv-body">
         <section className="tg-tv-game" aria-label="Game">
-          {game && <TvGame game={game} phase={phaseOf.get(game.id) ?? 'open'} result={results[game.id] ?? null} names={names} />}
+          {game && (
+            <TvGame
+              game={game}
+              phase={phaseOf.get(game.id) ?? 'open'}
+              result={results[game.id] ?? null}
+              names={names}
+              playAlert={playAlerts[game.id] ?? null}
+              flashes={categoryFlashes[game.id] ?? {}}
+            />
+          )}
         </section>
         <aside className="tg-tv-standings" aria-labelledby="tg-tv-standings-title">
           <div className="tg-standings-head">
@@ -171,24 +248,31 @@ export function TvView({ games, phases, results, standings, locked, players, onE
                 </tr>
               </thead>
               <tbody>
-                {rankStandings(standings.rows.filter((r) => names.has(r.playerId)), locked, finalStandings, sortBy).map((r) => (
-                  <tr key={r.playerId} className={r.rank === 1 ? 'tg-tv-leader' : undefined}>
-                    <td className="tg-rank"><RankMedal rank={r.rank} size={36} /></td>
-                    <td>{names.get(r.playerId)}</td>
-                    {finalStandings ? (
-                      <td className="tg-num">{r.live}</td>
-                    ) : (
-                      <>
-                        <td className={sortBy === 'live' ? 'tg-num tg-live-points tg-col-active' : 'tg-num tg-live-points tg-col-secondary'}>
-                          {r.live}
-                        </td>
-                        <td className={sortBy === 'banked' ? 'tg-num tg-board-locked tg-col-active' : 'tg-num tg-board-locked tg-col-secondary'}>
-                          {r.locked}
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                ))}
+                {rankStandings(standings.rows.filter((r) => names.has(r.playerId)), locked, finalStandings, sortBy).map((r) => {
+                  const movedUp = rankUpSet.has(r.playerId);
+                  const rowCls = [r.rank === 1 ? 'tg-tv-leader' : '', movedUp ? 'tg-tv-rank-up' : ''].filter(Boolean).join(' ') || undefined;
+                  return (
+                    <tr key={r.playerId} className={rowCls}>
+                      <td className="tg-rank"><RankMedal rank={r.rank} size={36} /></td>
+                      <td>
+                        {names.get(r.playerId)}
+                        {movedUp && <span className="tg-tv-up-arrow" aria-label="Moved up"> ▲</span>}
+                      </td>
+                      {finalStandings ? (
+                        <td className="tg-num">{r.live}</td>
+                      ) : (
+                        <>
+                          <td className={sortBy === 'live' ? 'tg-num tg-live-points tg-col-active' : 'tg-num tg-live-points tg-col-secondary'}>
+                            {r.live}
+                          </td>
+                          <td className={sortBy === 'banked' ? 'tg-num tg-board-locked tg-col-active' : 'tg-num tg-board-locked tg-col-secondary'}>
+                            {r.locked}
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           ) : (
@@ -200,7 +284,21 @@ export function TvView({ games, phases, results, standings, locked, players, onE
   );
 }
 
-function TvGame({ game, phase, result, names }: { game: Game; phase: GamePhase; result: GameResult | null; names: Map<string, string> }) {
+function TvGame({
+  game,
+  phase,
+  result,
+  names,
+  playAlert,
+  flashes,
+}: {
+  game: Game;
+  phase: GamePhase;
+  result: GameResult | null;
+  names: Map<string, string>;
+  playAlert: GameAlert | null;
+  flashes: Partial<Record<CategoryKey, 'final' | 'live'>>;
+}) {
   const scored = phase !== 'open' && !!result && result.score.status !== 'pre';
   const { line, projection } = game;
   const gameWinners = (result?.score.winners ?? []).map((id) => names.get(id)).filter((n): n is string => Boolean(n));
@@ -233,6 +331,9 @@ function TvGame({ game, phase, result, names }: { game: Game; phase: GamePhase; 
           )}
         </p>
       </div>
+
+      {playAlert && <TvPlayStrip alert={playAlert} game={game} names={names} />}
+
       {gameWinners.length > 0 && (
         <ChampionBanner
           title={gameWinners.length > 1 ? 'Game winners' : 'Game winner'}
@@ -255,8 +356,10 @@ function TvGame({ game, phase, result, names }: { game: Game; phase: GamePhase; 
             {result!.score.categories.map((c) => {
               const right = Object.keys(c.points).filter((id) => names.has(id)).map((id) => names.get(id)!);
               const final = c.status === 'final';
+              const flash = flashes[c.key];
+              const rowClass = flash ? `tg-tv-row-flash-${flash}` : undefined;
               return (
-                <tr key={c.key} data-testid={`tg-tv-cat-${c.key}`}>
+                <tr key={c.key} className={rowClass} data-testid={`tg-tv-cat-${c.key}`}>
                   <th scope="row">{c.label}</th>
                   <td className="tg-num">{worthBadge(c.worth)}</td>
                   <td><TeamText text={c.answer} teams={[game.away, game.home]} /></td>

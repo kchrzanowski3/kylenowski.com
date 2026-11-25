@@ -209,6 +209,15 @@ Kept light on text with distinct, non-overlapping icons: a **clock** for open ga
   Projected points look different from final ones, and a category becomes final as soon as its answer can't
   change any more (see the Status column); its points are then **banked**.
 - Updates reach phones about **15–45 seconds after the ESPN feed** (see "Live updates" below).
+- **Live play alerts (spoiler-delay aware):** computed client-side by diffing each published snapshot against the
+  previous one (never firing on initial load or page refresh). Every category change caused by a single play is
+  bundled into **one** alert with ESPN's latest scoring play text (`lastScoringPlay`), and game end collapses all
+  remaining category locks into a **single Game Final card**:
+  - **Mobile / web (personalized):** signed-in players get a brief bottom toast (and a compact collapsible **Recent
+    updates** catch-up strip above the game card) when they bank points, move into a live lead, take 1st overall, or
+    a game finishes.
+  - **Preview mode:** adding `?demoAlerts=1` to `/thanksgiving` shows a cycle button to preview sample plays (First
+    TD, Big Swing, Halftime, Game Final) on both TV and mobile.
 
 ### Full-screen scoreboard
 For a computer or TV left on during the games. "Full screen scoreboard" in the menu opens it (full screen where
@@ -216,6 +225,11 @@ the browser allows it); "Exit full screen" or Esc closes it. Nothing is tucked a
 - A strip of the games (logos, matchup, phase badge). It follows the game the page would open on (the live one,
   else the next); choosing another game keeps it until the followed game changes.
 - The game: logos, team names and score, the clock (or, before kickoff, the kickoff time, TV and Vegas projection).
+- A persistent **Last Big Play** strip below the score header that stays up until replaced by the next big play
+  (scoring plays, banked categories, turnovers, 3-point category lead changes, overall 1st-place changes, or Game
+  Final), paired with brief green/blue row flashes in the category table, `▲` rank-up pulses in the standings, and
+  an optional **Muted / Sound on** Web Audio chime toggle in the top bar (muted by default; chimes on banked points
+  and Game Final).
 - A table of every category: its full name, worth ("3 pts"), the value so far, **every player who's right, by
   name**, and its status (check Final / circle Live).
 - The overall standings in a box at the right, sized to its content: rank, player, **Live** and **✓ Banked**

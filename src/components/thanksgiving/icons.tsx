@@ -127,6 +127,36 @@ export function CloseIcon({ size = 16, className, label }: { size?: number; clas
   );
 }
 
+/** Speaker icon for the TV scoreboard's optional chime toggle. */
+export function SoundIcon({ muted, size = 15, className }: { muted: boolean; size?: number; className?: string }) {
+  return (
+    <svg className={className ? `tg-icon ${className}` : 'tg-icon'} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4.5 9.5h4l5-4.5v14l-5-4.5h-4z" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinejoin="round" />
+      {muted ? (
+        <path d="M16.5 9.5l4.5 5m0-5l-4.5 5" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" />
+      ) : (
+        <path d="M16.5 9a4.5 4.5 0 0 1 0 6m2.5-8.5a8 8 0 0 1 0 11" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" />
+      )}
+    </svg>
+  );
+}
+
+/** Bell icon for the mobile recent-updates strip. */
+export function BellIcon({ size = 14, className }: { size?: number; className?: string }) {
+  return (
+    <svg className={className ? `tg-icon ${className}` : 'tg-icon'} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M6.5 16.5h11l-1.4-2.2V10a4.1 4.1 0 1 0-8.2 0v4.3zM10 19a2 2 0 0 0 4 0"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 const DEFAULT_PHASE_TEXT: Record<GamePhase, string> = { open: 'Open', live: 'Live', final: 'Final' };
 
 /** Game phase indicator for tabs and headers: clock for open, crisp static LIVE badge for live, check for final. */

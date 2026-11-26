@@ -28,7 +28,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
-    "@firebase/rules-unit-testing": "5.0.2",
+    "@firebase/rules-unit-testing": "6.0.0",
     "@google-cloud/functions-framework": "5.0.5",
     "@playwright/test": "1.65.1",
     "@types/react": "^19.3.0",

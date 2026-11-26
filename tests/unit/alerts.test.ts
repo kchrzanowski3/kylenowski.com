@@ -11,6 +11,7 @@ import {
 } from '../../src/lib/thanksgiving/alerts';
 import { overallStandings, scoreGame, type GameInfo, type PlayerPick } from '../../src/lib/thanksgiving/scoring';
 import { preGameStats, type GameStats } from '../../src/lib/thanksgiving/stats';
+import { alertChimeKind } from '../../src/lib/thanksgiving/sound';
 import type { Game, Player } from '../../src/lib/thanksgiving/view';
 
 const GAME: Pick<Game, 'id' | 'away' | 'home'> = {
@@ -303,5 +304,13 @@ describe('toMobileAlert & standings changes', () => {
     expect(demos.map((d) => d.label)).toEqual(['First TD', 'Big Swing', 'Halftime', 'Game Final']);
     expect(demos[3].tvAlert.kind).toBe('final');
     expect(demos[3].tvAlert.banked).toEqual([]);
+  });
+
+  it('maps every TV alert type to its matching broadcast sound cue', () => {
+    expect(alertChimeKind({ kind: 'final', banked: [] })).toBe('final');
+    expect(alertChimeKind({ kind: 'banked', banked: [{}] })).toBe('banked');
+    expect(alertChimeKind({ kind: 'scoring', banked: [{}] })).toBe('banked');
+    expect(alertChimeKind({ kind: 'scoring', banked: [] })).toBe('scoring');
+    expect(alertChimeKind({ kind: 'swing', banked: [] })).toBe('swing');
   });
 });

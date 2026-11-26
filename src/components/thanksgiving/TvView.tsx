@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GameAlert } from '../../lib/thanksgiving/alerts';
 import type { CategoryKey, Standings as StandingsData } from '../../lib/thanksgiving/scoring';
-import { playChime } from '../../lib/thanksgiving/sound';
+import { alertChimeKind, playChime } from '../../lib/thanksgiving/sound';
 import { formatPoints } from '../../lib/thanksgiving/projection';
 import { etDateTime } from '../../lib/thanksgiving/config';
 import {
@@ -80,17 +80,17 @@ export function TvView({
   const root = useRef<HTMLDivElement>(null);
   const [sortBy, setSortBy] = useState<StandingsSort>('live');
   const [soundOn, setSoundOn] = useState(false);
+  const [turduckenMode, setTurduckenMode] = useState(false);
   const lastChimedId = useRef<string | null>(latestAlert?.id ?? null);
   useWakeLock();
 
-  // Play a subtle chime (only when user unmuted) on banked points or Game Final.
+  // Play a loud broadcast fanfare (when unmuted) on every TV play alert.
   useEffect(() => {
     if (!latestAlert || latestAlert.id === lastChimedId.current) return;
     lastChimedId.current = latestAlert.id;
     if (!soundOn) return;
-    if (latestAlert.kind === 'final') playChime('final');
-    else if (latestAlert.banked.length > 0) playChime('banked');
-  }, [latestAlert, soundOn]);
+    playChime(alertChimeKind(latestAlert), { turducken: turduckenMode });
+  }, [latestAlert, soundOn, turduckenMode]);
 
   // Full screen when the browser allows it; leaving full screen (Esc) closes the scoreboard.
   useEffect(() => {
@@ -128,7 +128,15 @@ export function TvView({
   const toggleSound = () => {
     setSoundOn((prev) => {
       const next = !prev;
-      if (next) playChime('confirm');
+      if (next) playChime('confirm', { turducken: turduckenMode });
+      return next;
+    });
+  };
+
+  const toggleTurducken = () => {
+    setTurduckenMode((prev) => {
+      const next = !prev;
+      if (next) playChime('confirm', { turducken: true });
       return next;
     });
   };
@@ -175,11 +183,23 @@ export function TvView({
             aria-pressed={soundOn}
             onClick={toggleSound}
             data-testid="tg-tv-sound-toggle"
-            title={soundOn ? 'Chime enabled on banked points and game final' : 'Enable chime on banked points and game final'}
+            title={soundOn ? 'Broadcast alerts enabled on all TV notifications' : 'Enable loud broadcast sound on TV notifications'}
           >
             <SoundIcon muted={!soundOn} size={15} />
             <span>{soundOn ? 'Sound on' : 'Muted'}</span>
           </button>
+          {soundOn && (
+            <button
+              type="button"
+              className={turduckenMode ? 'tg-tv-control tg-tv-turducken-on' : 'tg-tv-control'}
+              aria-pressed={turduckenMode}
+              onClick={toggleTurducken}
+              data-testid="tg-tv-turducken-toggle"
+              title="Add a turkey gobble and 'Boom! Turducken!' callout to TV alerts"
+            >
+              <span>{turduckenMode ? 'Turducken: ON' : 'Turducken'}</span>
+            </button>
+          )}
           <button type="button" className="tg-tv-exit" onClick={onExit}>Exit full screen</button>
         </div>
       </header>

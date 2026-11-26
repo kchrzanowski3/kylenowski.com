@@ -389,8 +389,14 @@ test('demoAlerts=1 previews TV Last Big Play strip, sound toggle, mobile toast, 
 
   const soundBtn = tv.getByTestId('tg-tv-sound-toggle');
   await expect(soundBtn).toHaveAttribute('aria-pressed', 'false');
+  await expect(tv.getByTestId('tg-tv-turducken-toggle')).toHaveCount(0);
   await soundBtn.click();
   await expect(soundBtn).toHaveAttribute('aria-pressed', 'true');
+  const turduckenBtn = tv.getByTestId('tg-tv-turducken-toggle');
+  await expect(turduckenBtn).toBeVisible();
+  await expect(turduckenBtn).toHaveAttribute('aria-pressed', 'false');
+  await turduckenBtn.click();
+  await expect(turduckenBtn).toHaveAttribute('aria-pressed', 'true');
 
   // Cycling through Big Swing -> Halftime -> Game Final updates the persistent strip in place.
   await tv.getByTestId('tg-tv-demo-alert').click();

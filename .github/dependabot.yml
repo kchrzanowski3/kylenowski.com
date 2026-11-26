@@ -7,10 +7,18 @@ updates:
       day: monday
     cooldown:
       default-days: 7
+    ignore:
+      # @astrojs/check currently requires peer typescript ^5.0.0 || ^6.0.0.
+      - dependency-name: typescript
+        versions:
+          - ">= 7.0.0"
     groups:
       npm-dependencies:
         patterns:
           - "*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: npm
     directory: /functions
@@ -23,6 +31,9 @@ updates:
       functions-dependencies:
         patterns:
           - "*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: terraform
     directory: /infra
@@ -35,6 +46,9 @@ updates:
       terraform-providers:
         patterns:
           - "*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: github-actions
     directory: /
@@ -47,3 +61,6 @@ updates:
       github-actions:
         patterns:
           - "*"
+        update-types:
+          - minor
+          - patch

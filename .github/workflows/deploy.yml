@@ -276,9 +276,13 @@ jobs:
           wait-for-processing: false
 
   # Read-only Terraform plan on PRs (and non-main dispatches), running in parallel with tests.
+  # Skipped on Dependabot PRs because GitHub doesn't expose repository Actions secrets
+  # (CLOUDFLARE_API_TOKEN, TG_ADMIN_EMAIL) to Dependabot; merging to main still runs infra-apply.
   infra-plan:
     needs: [build]
-    if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+    if: >-
+      (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && github.event.pull_request.user.login != 'dependabot[bot]')
+      || (github.event_name != 'pull_request' && github.ref != 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
       contents: read

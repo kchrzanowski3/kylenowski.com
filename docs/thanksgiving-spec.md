@@ -228,8 +228,8 @@ the browser allows it); "Exit full screen" or Esc closes it. Nothing is tucked a
 - A persistent **Last Big Play** strip below the score header that stays up until replaced by the next big play
   (scoring plays, banked categories, turnovers, 3-point category lead changes, overall 1st-place changes, or Game
   Final), paired with brief green/blue row flashes in the category table, `▲` rank-up pulses in the standings, and
-  an optional **Muted / Sound on** Web Audio chime toggle in the top bar (muted by default; chimes on banked points
-  and Game Final).
+  an optional **Muted / Sound on** broadcast horn & chime toggle in the top bar (muted by default; plays loud
+  distinct fanfares on every TV alert, with an optional **Turducken** gobble + callout toggle when sound is on).
 - A table of every category: its full name, worth ("3 pts"), the value so far, **every player who's right, by
   name**, and its status (check Final / circle Live).
 - The overall standings in a box at the right, sized to its content: rank, player, **Live** and **✓ Banked**

@@ -2966,6 +2966,12 @@ body.tg-body .shell {
   color: var(--tg-ok);
 }
 
+.tg-tv-turducken-on {
+  border-color: rgba(240, 185, 75, 0.72);
+  background: rgba(240, 185, 75, 0.22);
+  color: #fde68a;
+}
+
 .tg-tv-demo-btn {
   border-color: rgba(240, 185, 75, 0.55);
   background: rgba(240, 185, 75, 0.14);

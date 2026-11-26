@@ -11,6 +11,13 @@ type Json = any;
 
 export type ScoreType = 'td' | 'fg' | 'safety';
 
+export interface ScoringPlaySummary {
+  id: string;
+  side: Side;
+  type: ScoreType;
+  text: string;
+}
+
 export interface GameStats {
   state: 'pre' | 'in' | 'post';
   period: number; // 0 before kickoff; 5+ is overtime
@@ -22,6 +29,8 @@ export interface GameStats {
   firstScore: { side: Side; type: ScoreType } | null;
   /** The first touchdown. scorerId is the ESPN athlete id when known. */
   firstTd: { side: Side; playId: string; scorerId: string | null; scorerName: string } | null;
+  /** Most recent scoring play from the feed, for live play headlines. */
+  lastScoringPlay?: ScoringPlaySummary | null;
   /** Score at the end of the 2nd quarter (the current score until then). */
   halftime: { away: number; home: number };
   passTds: { away: number; home: number };
@@ -71,6 +80,14 @@ export function scorerNameFromText(text: string): string {
   return (m ? m[1] : t).trim();
 }
 
+/** Trims routine "(Kicker Kick)" PAT suffixes while keeping failed PATs / 2-pt notes. */
+export function cleanScoringPlayText(text: string): string {
+  return String(text ?? '')
+    .trim()
+    .replace(/\s*\([^)]*\bKick\)$/i, '')
+    .trim();
+}
+
 const SCORE_TYPES: Record<string, ScoreType> = { TD: 'td', FG: 'fg', SF: 'safety' };
 
 /** The feed's game status (from the scoreboard, or the summary's header). */
@@ -97,7 +114,9 @@ export function deriveGameStats(summary: Json, status: FeedStatus, firstTdScorer
   const away = status.state === 'pre' ? 0 : int(awayC?.score ?? last?.awayScore);
   const home = status.state === 'pre' ? 0 : int(homeC?.score ?? last?.homeScore);
 
-  const first = plays.find((p) => SCORE_TYPES[p.scoringType.abbreviation]);
+  const scoredPlays = plays.filter((p) => SCORE_TYPES[p.scoringType.abbreviation]);
+  const first = scoredPlays[0];
+  const lastScored = scoredPlays[scoredPlays.length - 1];
   const tdPlays = plays.filter((p) => p.scoringType.abbreviation === 'TD');
   const firstTdPlay = tdPlays[0];
 
@@ -143,6 +162,14 @@ export function deriveGameStats(summary: Json, status: FeedStatus, firstTdScorer
           scorerName: scorerNameFromText(firstTdPlay.text),
         }
       : null,
+    lastScoringPlay: lastScored
+      ? {
+          id: String(lastScored.id ?? ''),
+          side: sideOf(lastScored.team?.id),
+          type: SCORE_TYPES[lastScored.scoringType.abbreviation],
+          text: cleanScoringPlayText(lastScored.text),
+        }
+      : null,
     halftime,
     passTds: {
       away: total(summary, ids.away, 'passing', 'passingTouchdowns')[0],
@@ -169,7 +196,7 @@ export function deriveGameStats(summary: Json, status: FeedStatus, firstTdScorer
 export function preGameStats(): GameStats {
   return {
     state: 'pre', period: 0, clock: null, halftimeReached: false, away: 0, home: 0,
-    firstScore: null, firstTd: null, halftime: { away: 0, home: 0 },
+    firstScore: null, firstTd: null, lastScoringPlay: null, halftime: { away: 0, home: 0 },
     passTds: { away: 0, home: 0 }, rushTds: { away: 0, home: 0 },
     missedKick: false, leadChange4q: false, fgs: 0, punts: 0, tds: 0, turnovers: 0, longestTd: 0, sacks: 0,
   };

@@ -1,7 +1,7 @@
 // Game stats from recorded 2026 games (docs/thanksgiving-spec.md, Testing §2). Expected values were
 // worked out by hand from each game's scoring summary and box score, not from the code under test.
 import { describe, expect, it } from 'vitest';
-import { deriveGameStats, feedStatus, preGameStats, scorerIdFromCorePlay, scorerNameFromText, type FeedStatus } from '../../src/lib/thanksgiving/stats';
+import { cleanScoringPlayText, deriveGameStats, feedStatus, preGameStats, scorerIdFromCorePlay, scorerNameFromText, type FeedStatus } from '../../src/lib/thanksgiving/stats';
 import { load } from './fixtures';
 
 const FINAL: FeedStatus = { state: 'post', period: 4, clock: '0:00', name: 'STATUS_FINAL' };
@@ -166,6 +166,17 @@ describe('other derived stats', () => {
   });
 
   it('a game that has not started has all zeros', () => {
-    expect(preGameStats()).toMatchObject({ state: 'pre', away: 0, home: 0, tds: 0, firstScore: null });
+    expect(preGameStats()).toMatchObject({ state: 'pre', away: 0, home: 0, tds: 0, firstScore: null, lastScoringPlay: null });
+  });
+
+  it('captures the most recent scoring play text and trims routine PAT kick suffixes', () => {
+    const s = deriveGameStats(load('summary-no-at-chi-2026-wk11-safety.json'), FINAL);
+    expect(s.lastScoringPlay).toMatchObject({ side: 'away', type: 'fg', text: 'Charlie Smyth 51 Yd Field Goal' });
+    expect(cleanScoringPlayText('Amon-Ra St. Brown 19 Yd pass from Jared Goff (Jake Bates Kick)')).toBe(
+      'Amon-Ra St. Brown 19 Yd pass from Jared Goff',
+    );
+    expect(cleanScoringPlayText('Colston Loveland 15 Yd pass from Caleb Williams (Cairo Santos PAT Failed)')).toBe(
+      'Colston Loveland 15 Yd pass from Caleb Williams (Cairo Santos PAT Failed)',
+    );
   });
 });
